@@ -20,6 +20,10 @@
 #define C_SET 0x03
 #define BCC1 (A_SET ^ C_SET)
 
+#define A_UA 0x01
+#define C_UA 0x07
+#define BCC2 (A_UA ^ C_UA)
+
 volatile int STOP=FALSE;
 
 char sent[255];
@@ -27,40 +31,49 @@ char received[255];
 int res, fd;
 char buf[255];
 
-void establishLogicGate(){
-  // SET
-  sent[0] = FLAG;
-  sent[1] = A_SET;
-  sent[2] = C_SET;
-  sent[3] = BCC1;
-  sent[4] = FLAG;
+int establishLogicGate(){
+  // Preparation to send SET
+  buf[0] = FLAG;
+  buf[1] = A_SET;
+  buf[2] = C_SET;
+  buf[3] = BCC1;
+  buf[4] = FLAG;
+  res = write(fd,buf,5);
+  printf("SET sent.\n");
 
-  // Sending SET
-  while(TRUE){
-    res = write(fd,buf,6); 
-    printf("SET sent.\n");
+  // UA Handling
+  printf("Waiting for UA...\n");
+  res = read(fd,received,5);
+  printf("Received UA. Checking values...\n");
 
-    res = read(fd,received,6);
-    printf("UA received.\n");
-
-    if(res == 0){
-      sleep(1);
-    }
-    else{
-      break;
-    }
+  if (received[0] != FLAG || received[4] != FLAG){
+    printf("FLAG error\n");
+    return 1;
+  }
+  else if (received[1] != A_UA){
+    printf("A_UA error\n");
+    return 1;
+  }
+  else if (received[2] != C_UA){
+    printf("C_UA error\n");
+    return 1;
+  }
+  else if (received[3] != BCC2){
+    printf("BCC2 error\n");
+    return 1;
+  }
+  else{
+    printf("UA is valid\n");
   }
 
-  printf("UA: ");
-  write(STDOUT_FILENO, received, 6);
+  return 0;
 }
 
 
 int main(int argc, char** argv)
 {
-  int c, fd, res;
+  int c;
   struct termios oldtio,newtio;
-  char buf[255];
   int i, sum = 0, speed = 0;
   
   if ( (argc < 2) || 
@@ -116,7 +129,7 @@ int main(int argc, char** argv)
 
   establishLogicGate();
   
-  size_t len;
+  /*size_t len;
   if(gets(buf)==NULL){
       perror("gets");
       exit(-1);
@@ -127,10 +140,10 @@ int main(int argc, char** argv)
   while(TRUE){
     res = write(fd,buf,len); 
 
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,1);   /* returns after 5 chars have been input */
-      buf[res]='\0';               /* so we can printf... */
-      //printf(":%s:%d\n", buf, res);
+    while (STOP==FALSE) {
+      res = read(fd,buf,1);
+      buf[res]='\0';
+
       received[count]=buf[0];
       count++;
       if (buf[0]=='\0') STOP=TRUE;
@@ -146,7 +159,7 @@ int main(int argc, char** argv)
 
   printf("Received: ");
   printf("%s", received);
-  printf("\n");
+  printf("\n");*/
 
   close(fd);
   return 0;
