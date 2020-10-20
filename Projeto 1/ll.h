@@ -21,3 +21,5 @@ struct applicationLayer {
 } app;
 
 int llopen(const char* port, int role);
+
+int llclose(int fd, int status);

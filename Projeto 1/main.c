@@ -32,6 +32,15 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+  printf("\n\n");
+  printf("Parte em que se manda o ficheiro...");
+  printf("\n\n");
+
+  if (llclose(fd, atoi(argv[2])) == -1) {
+		perror("LLCLOSE");
+		return -1;
+	}
+
   /*size_t len;
   if(gets(buf)==NULL){
       perror("gets");
