@@ -5,7 +5,64 @@ char received[255];
 int res, fd;
 struct termios oldtio,newtio;
 
-int llopen(const char* serialPort, int status){
+int sendFrame(int fd, unsigned char* packet, int size){
+    unsigned int maxSize = 6 + 2*size; // worst case scenario, every byte has to be stuffed (size duplicates) except for the control bytes (6) 
+    unsigned char frame[maxSize];
+    int frameIndex = 4, index = 0;
+
+    // Control front bytes
+    frame[0] = FLAG;
+    frame[1] = A_SET;
+    if (app.ns == 0)
+        frame[2] = BCC_NS0;
+    else frame[2] = BCC_NS1;
+    frame[3] = (A_SET ^ frame[2]);
+
+    unsigned char bcc2 = 0x00;
+
+	for (int i = 0; i < size; i++)
+		bcc2 ^= packet[i];
+
+    while(index < size){
+        if (packet[index] == FLAG || packet[index] == ESC){
+            frame[4+index] = ESC;
+            frame[4+index+1] = packet[index] ^ STUFFING;
+            index++;
+        }
+        else frame[4+index] = packet[index];
+
+        index++;
+    }
+
+    // Control back bytes
+    if (bcc2 == FLAG || bcc2 == ESC){
+        frame[4+index] = ESC;
+        frame[4+index+1] = bcc2 ^ STUFFING;
+        index++;
+    }
+    else frame[index] = bcc2;
+    index++;
+
+    frame[index] = FLAG;
+
+    write(fd, frame, size);
+
+    printf("Frame size: %d\n", index);
+    return index;  
+}
+
+int llwrite(int fd, unsigned char* packet, int size){
+    printf("vou começar o envio\n");
+    sendFrame(fd, packet, size);
+    return 0;
+}
+
+int llread(int fd, unsigned char* packet){
+    res = read(fd,buf,15);
+    printf("%s\n", buf);
+}
+
+int setStruct(const char* serialPort, int status){
     fd = open(serialPort, O_RDWR | O_NOCTTY );
     if (fd <0) {perror(serialPort); exit(-1); }
 
@@ -35,6 +92,13 @@ int llopen(const char* serialPort, int status){
 
     strcpy(app.serialPort, serialPort);
     app.status = status;
+    app.ns = 0;
+
+    return fd;
+}
+
+int llopen(const char* serialPort, int status){
+    int fd = setStruct(serialPort, status);
     
     switch(status){
         case 0:
@@ -223,6 +287,6 @@ int llclose(int fd, int status){
             return -1;
     }
 
-    return 0;
+    return fd;
 }
 

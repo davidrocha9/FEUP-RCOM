@@ -26,6 +26,7 @@ int main(int argc, char** argv)
   Open serial port device for reading and writing and not as controlling tty
   because we don't want to get killed if linenoise sends CTRL-C.
 */
+  int index = atoi(argv[2]);
 
   if ((fd = llopen(argv[1], atoi(argv[2]))) == -1) {
 		perror("LLOPEN");
@@ -35,6 +36,31 @@ int main(int argc, char** argv)
   printf("\n\n");
   printf("Parte em que se manda o ficheiro...");
   printf("\n\n");
+
+  /*unsigned char packet[5];
+  if (index == 0){
+    printf("vou empacotar\n");
+    packet[0] = 'g';
+    packet[1] = 'o';
+    packet[2] = 'o';
+    packet[3] = 'd';
+    packet[4] = 's';
+    printf("empacotei\n");
+
+    llwrite(fd, packet, 5);
+  }
+  else{
+    char strfinal[255];
+    int count = 0;
+    while (STOP==FALSE) { 
+      res = read(fd,buf,1);
+      buf[res]='\0';
+      printf(":%s:%d\n", buf, res);
+      strfinal[count]=buf[0];
+      count++;
+      if (buf[0]=='\0') STOP=TRUE;
+    }
+  }*/
 
   if (llclose(fd, atoi(argv[2])) == -1) {
 		perror("LLCLOSE");

@@ -18,8 +18,17 @@
 struct applicationLayer {
   char serialPort[64];   /*Descritor correspondente à porta série*/
   int status;   /*TRANSMITTER | RECEIVER*/
+  int ns;
 } app;
 
 int llopen(const char* port, int role);
 
 int llclose(int fd, int status);
+
+int sendFrame(int fd, unsigned char* packet, int size);
+
+int llwrite(int fd, unsigned char* packet, int size);
+
+int llread(int fd, unsigned char* packet);
+
+int setStruct(const char* serialPort, int status);

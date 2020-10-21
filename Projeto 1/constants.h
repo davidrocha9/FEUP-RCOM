@@ -9,3 +9,9 @@
 #define BCC2 (A_UA ^ C_UA)
 
 #define BCC_DISC (A_SET ^ C_DISC)
+
+#define BCC_NS0     0x00
+#define BCC_NS1     0x40
+
+#define ESC 0x7D
+#define STUFFING 0x20
