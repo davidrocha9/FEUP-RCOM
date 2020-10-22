@@ -16,8 +16,8 @@ int main(int argc, char** argv)
   int i, sum = 0, speed = 0;
   
   if ( (argc < 3) || 
-        ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+        ((strcmp("/dev/ttyS10", argv[1])!=0) && 
+        (strcmp("/dev/ttyS11", argv[1])!=0) )) {
     printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS1 0\n");
     exit(1);
   }
@@ -34,33 +34,17 @@ int main(int argc, char** argv)
 	}
 
   printf("\n\n");
-  printf("Parte em que se manda o ficheiro...");
-  printf("\n\n");
-
-  /*unsigned char packet[5];
+  
+  char message[256] = "caralho esta merda que funciona senao vai haver cegada";
+  char buffer[256] = "";
   if (index == 0){
-    printf("vou empacotar\n");
-    packet[0] = 'g';
-    packet[1] = 'o';
-    packet[2] = 'o';
-    packet[3] = 'd';
-    packet[4] = 's';
-    printf("empacotei\n");
-
-    llwrite(fd, packet, 5);
+    llwrite(fd, message, strlen(message));
   }
   else{
-    char strfinal[255];
-    int count = 0;
-    while (STOP==FALSE) { 
-      res = read(fd,buf,1);
-      buf[res]='\0';
-      printf(":%s:%d\n", buf, res);
-      strfinal[count]=buf[0];
-      count++;
-      if (buf[0]=='\0') STOP=TRUE;
-    }
-  }*/
+    llread(fd, buffer);
+  }
+
+  printf("\n\n");
 
   if (llclose(fd, atoi(argv[2])) == -1) {
 		perror("LLCLOSE");

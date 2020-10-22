@@ -15,3 +15,5 @@
 
 #define ESC         0x7D
 #define STUFFING    0x20
+
+#define SUCCESS0 0x05
