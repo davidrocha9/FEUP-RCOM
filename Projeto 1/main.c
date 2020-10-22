@@ -12,7 +12,7 @@ char buf[255];
 int main(int argc, char** argv)
 {
   int c;
-  struct termios oldtio,newtio;
+  struct termios oldtio, newtio;
   int i, sum = 0, speed = 0;
   
   if ( (argc < 3) || 

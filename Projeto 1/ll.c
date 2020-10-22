@@ -3,7 +3,6 @@
 char buf[255];
 char received[255];
 int res, fd;
-struct termios oldtio,newtio;
 
 int sendFrame(int fd, unsigned char* packet, int size){
     unsigned int maxSize = 6 + 2*size; // worst case scenario, every byte has to be stuffed (size duplicates) except for the control bytes (6) 
@@ -58,32 +57,35 @@ int llwrite(int fd, unsigned char* packet, int size){
 }
 
 int llread(int fd, unsigned char* packet){
-    res = read(fd,buf,15);
+    res = read(fd, buf, 15);
     printf("%s\n", buf);
 }
 
 int setStruct(const char* serialPort, int status){
-    fd = open(serialPort, O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(serialPort); exit(-1); }
+    fd = open(serialPort, O_RDWR | O_NOCTTY);
+    if (fd < 0) {
+        perror(serialPort); 
+        exit(-1); 
+    }
 
-    if ( tcgetattr(fd,&oldtio) == -1) {
+    if (tcgetattr(fd, &app.oldtio) == -1) {
       perror("tcgetattr");
       exit(-1);
     }
 
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
+    bzero(&app.newtio, sizeof(app.newtio));
+    app.newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    app.newtio.c_iflag = IGNPAR;
+    app.newtio.c_oflag = 0;
 
-    newtio.c_lflag = 0;
+    app.newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;
-    newtio.c_cc[VMIN]     = 5;
+    app.newtio.c_cc[VTIME] = 0;
+    app.newtio.c_cc[VMIN] = 5;
 
     tcflush(fd, TCIOFLUSH);
 
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
+    if (tcsetattr(fd, TCSANOW, &app.newtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
@@ -93,6 +95,9 @@ int setStruct(const char* serialPort, int status){
     strcpy(app.serialPort, serialPort);
     app.status = status;
     app.ns = 0;
+    app.timeouts = MAX_TIMEOUTS;
+    app.numTries = 0;
+    app.alarmFlag = 1;
 
     return fd;
 }
@@ -101,44 +106,39 @@ int llopen(const char* serialPort, int status){
     int fd = setStruct(serialPort, status);
     
     switch(status){
-        case 0:
+        case TRANSMITTER: //TRANSMITTER
+
             buf[0] = FLAG;
             buf[1] = A_SET;
             buf[2] = C_SET;
             buf[3] = BCC1;
             buf[4] = FLAG;  
-            res = write(fd,buf,5);
-            printf("SET sent.\n");
 
-            // UA Handling
-            printf("Waiting for UA...\n");
+            do {
+                printf("Writing SET\n");
+                res = write(fd, buf, 5);
+                printf("SET sent.\n");
+                startAlarm();
+                app.alarmFlag = 0;
 
-            res = read(fd,received,5);
-            printf("Received UA. Checking values...\n");
+                printf("Waiting for UA...\n");
+                int error = readResponseSET();
 
-            if (received[0] != FLAG || received[4] != FLAG){
-                printf("FLAG error\n");
-                return 1;
+            } while (app.numTries < MAX_TRIES && app.alarmFlag);
+
+            stopAlarm();
+
+            if (app.numTries >= MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
             }
-            else if (received[1] != A_UA){
-                printf("A_UA error\n");
-                return 1;
-            }
-            else if (received[2] != C_UA){
-                printf("C_UA error\n");
-                return 1;
-            }
-            else if (received[3] != BCC2){
-                printf("BCC2 error\n");
-                return 1;
-            }
-            else{
-                printf("UA is valid\n");
-            }
+            app.numTries = 0;
             break;
-        case 1:
+
+
+        case RECEIVER: //RECEIVER
             printf("Waiting for SET...\n");
-            res = read(fd,received,5);
+            res = read(fd, received, 5);
             printf("Received SET. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){
@@ -166,7 +166,7 @@ int llopen(const char* serialPort, int status){
             buf[2] = C_UA;
             buf[3] = BCC2;
             buf[4] = FLAG;
-            res = write(fd,buf,5);  
+            res = write(fd, buf, 5);  
             printf("UA Sent.\n");
 
             break;
@@ -180,52 +180,47 @@ int llopen(const char* serialPort, int status){
 
 int llclose(int fd, int status){
     switch(status){
-        case 0:
+        case TRANSMITTER:
             buf[0] = FLAG;
             buf[1] = A_SET;
             buf[2] = C_DISC;
             buf[3] = BCC_DISC;
             buf[4] = FLAG;  
-            res = write(fd,buf,5);
-            printf("DISC sent.\n");
 
-            // DISC Handling
-            printf("Waiting for DISC...\n");
+            do {
+                res = write(fd, buf, 5);
+                printf("DISC sent.\n");
+                startAlarm();
+                app.alarmFlag = 0;
+                //reading DISC frame
+                printf("Waiting for DISC...\n");
+                int error = readResponseDISC();
 
-            res = read(fd,received,5);
-            printf("Received DISC. Checking values...\n");
+            } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
-            if (received[0] != FLAG || received[4] != FLAG){
-                printf("FLAG error\n");
-                return 1;
-            }
-            else if (received[1] != A_SET){
-                printf("A_SET error\n");
-                return 1;
-            }
-            else if (received[2] != C_DISC){
-                printf("C_DISC error\n");
-                return 1;
-            }
-            else if (received[3] != BCC_DISC){
-                printf("BCC_DISC error\n");
-                return 1;
-            }
-            else{
-                printf("DISC is valid\n");
-            }
+            stopAlarm();
 
-            buf[0] = FLAG;
-            buf[1] = A_UA;
-            buf[2] = C_UA;
-            buf[3] = BCC2;
-            buf[4] = FLAG;
-            res = write(fd,buf,5);  
-            printf("UA Sent.\n"); 
+            if (app.numTries >= MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
+            }
+            else {
+                printf("Writing UA\n");
+                buf[0] = FLAG;
+                buf[1] = A_UA;
+                buf[2] = C_UA;
+                buf[3] = BCC2;
+                buf[4] = FLAG;
+                res = write(fd, buf, 5); 
+                printf("UA Sent.\n"); 
+                sleep(1);
+            }
             break;
-        case 1:
+
+
+        case RECEIVER:
             printf("Waiting for DISC...\n");
-            res = read(fd,received,5);
+            res = read(fd, received, 5);
             printf("Received DISC. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){
@@ -253,13 +248,13 @@ int llclose(int fd, int status){
             buf[2] = C_DISC;
             buf[3] = BCC_DISC;
             buf[4] = FLAG;  
-            res = write(fd,buf,5);
+            res = write(fd, buf, 5);
             printf("DISC sent.\n");  
             
             // UA Handling
             printf("Waiting for UA...\n");
 
-            res = read(fd,received,5);
+            res = read(fd, received, 5);
             printf("Received UA. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){
@@ -278,7 +273,7 @@ int llclose(int fd, int status){
                 printf("BCC2 error\n");
                 return 1;
             }
-            else{
+            else {
                 printf("UA is valid\n");
             }
             break;
@@ -287,6 +282,71 @@ int llclose(int fd, int status){
             return -1;
     }
 
+    stopConnection();
     return fd;
 }
 
+int readResponseSET() {
+    res = read(fd, received, 5);
+    printf("Received SET. Checking values...\n");
+
+    if (received[0] != FLAG || received[4] != FLAG){
+        printf("FLAG error\n");
+        return 1;
+    }
+    else if (received[1] != A_UA){
+        printf("A_UA error\n");
+        return 1;
+    }
+    else if (received[2] != C_UA){
+        printf("C_UA error\n");
+        return 1;
+    }
+    else if (received[3] != BCC2){
+        printf("BCC2 error\n");
+        return 1;
+    }
+    else{
+        printf("SET is valid\n");
+    }
+
+    return 0;
+}
+
+int readResponseDISC() {
+    res = read(fd, received, 5);
+    printf("Received DISC. Checking values...\n");
+
+    if (received[0] != FLAG || received[4] != FLAG){
+        printf("FLAG error\n");
+        return 1;
+    }
+    else if (received[1] != A_SET){
+        printf("A_SET error\n");
+        return 1;
+    }
+    else if (received[2] != C_DISC){
+        printf("C_DISC error\n");
+        return 1;
+    }
+    else if (received[3] != BCC_DISC){
+        printf("BCC_DISC error\n");
+        return 1;
+    }
+    else{
+        printf("DISC is valid\n");
+    }
+    return 0;
+}
+
+stopConnection() {
+    tcflush(fd, TCIOFLUSH);
+
+    if (tcsetattr(fd, TCSANOW, &app.oldtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
+    close(fd);
+    printf("\nENDING DATA TRANSFER\n");
+    return 0;
+}
