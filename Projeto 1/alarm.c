@@ -1,9 +1,9 @@
 #include "alarm.h"
 
 void alarm_handler(int signal) {
-    /**
-     * update variables 
-     */
+
+    if(signal != SIGALRM)
+        return;
     app.numTries++;
     app.timeouts++;
     app.alarmFlag = 1;

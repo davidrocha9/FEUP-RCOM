@@ -1,11 +1,12 @@
 #include "ll.h"
 
-char buf[255];
+/*char buf[255];
 char received[255];
-int res, fd;
+int res, fd;*/
 
-int readResponseSET() {
-    res = read(fd, received, 5);
+int readResponseSET(int fd) {
+    char received[255];
+    int res = read(fd, received, 5);
     printf("Received SET. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
@@ -31,8 +32,9 @@ int readResponseSET() {
     return 0;
 }
 
-int readResponseDISC() {
-    res = read(fd, received, 5);
+int readResponseDISC(int fd) {
+    char received[255];
+    int res = read(fd, received, 5);
     printf("Received DISC. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
@@ -57,7 +59,7 @@ int readResponseDISC() {
     return 0;
 }
 
-int stopConnection() {
+int stopConnection(int fd) {
     tcflush(fd, TCIOFLUSH);
 
     if (tcsetattr(fd, TCSANOW, &app.oldtio) == -1) {
@@ -165,19 +167,32 @@ int checkSucess(int fd, char* packet){
 
 int llwrite(int fd, char* packet, int size){
     int frameSize, res;
-    
+
     do{
+        if (app.numTries >= 1){
+            printf("Retrying...\n");
+        }
         frameSize = sendFrame(fd, packet, size);
+        printf("Packet sent.\n");
         startAlarm();
-        app.alarmFlag = 1;
-        res = checkSucess(fd, packet);
+        app.alarmFlag = 0;
+
+        int val = checkSucess(fd, packet);
+        printf("Res: %d\n", val);
         if (!checkSucess(fd, packet)){
             stopAlarm();
-            app.alarmFlag = 0;
+            app.alarmFlag = 1;
+            break;
         }
     } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
     stopAlarm();
+
+    if (app.numTries >= MAX_TRIES) {
+        printf("max number of tries achieved\n");
+        return -1;
+    }
+    app.numTries = 0;
 
     return frameSize;
 }
@@ -236,8 +251,6 @@ int readFrame(int fd, char* packet){
     char byte, bcc2 = 0x00;
     State state = START; 
     char msg[1024];
-    //int messagelen = 0;
-
     while (1){
         read(fd, &byte, 1);
         checkFrameState(&state, byte);
@@ -257,34 +270,36 @@ int readFrame(int fd, char* packet){
 
         }
     }
-    
+
     return len;
 }
 
 int destuff(char* packet, char* destuffed, int size){
-    for (int x = 0; x < 5; x++){
+    for (int x = 0; x < 4; x++){
         destuffed[x] = packet[x];
     }
 
-    int destuffedIndex = 0;
+    int j = 4;
+	int i;
+	for (i = 4; i < size - 2; i++) {
+		if (packet[i] == ESC) {
+			i++;
+			if (packet[i] == (FLAG ^ STUFFING))
+				destuffed[j++] = FLAG;
+			else if (packet[i] == (ESC ^ STUFFING))
+				destuffed[j++] = ESC;
+		}
+		else {
+			destuffed[j++] = packet[i];
+		}
+	}
 
-    for (int i = 0; i < size - 2; i++){
-        if (packet[i] == ESC && packet[i] == (FLAG ^ STUFFING)){
-            destuffed[destuffedIndex] == FLAG;
-            i++;
-        }
-        else if (packet[i] == ESC && packet[i] == (ESC ^ STUFFING)){
-            destuffed[destuffedIndex] == ESC;
-            i++;
-        }
-        else destuffed[destuffedIndex] = packet[i];
+    destuffed[j++] = packet[i++];
+    destuffed[j++] = packet[i++];
 
-        destuffedIndex++;
-    }
+    printf("Tamanho da frame: %d\n", i);
 
-    destuffed[destuffedIndex] = FLAG;
-
-    return destuffedIndex;
+    return i;
 }
 
 int verifyPacket (char* destuffedFrame, int size){
@@ -338,17 +353,28 @@ int llread(int fd, char* packet){
     char destuffedFrame[1024];
     char message[256];
     char response[256];
+    memset(message,0,strlen(message));
+    memset(response,0,strlen(response));
     char* answer;
     int size = 0;
 
     if ((size = readFrame(fd, packet)) > 0){
         destuff(packet, destuffedFrame, size);
 
-        for (int x = 4; x < size - 2; x++){
+        /*for (int x = 4; x < size - 2; x++){
             if (destuffedFrame[x] != FLAG){
+                printf("%c\n", message[x-4]);
                 message[x-4] = destuffedFrame[x];
             }
+        }*/
+
+        for (int x = 4; x < size - 2; x++){
+            message[x-4] = destuffedFrame[x];
         }
+
+        printf("Data size: %d\n", size);
+        write(STDOUT_FILENO, message, strlen(message));
+        printf("\n");
 
         //code smell magic numbers mas caguei, strings sao cenas que ao C nao assistem
         if (verifyPacket(destuffedFrame, size)){
@@ -380,13 +406,11 @@ int llread(int fd, char* packet){
         }
 
     }
-
-    write(STDOUT_FILENO, message, strlen(message));
     return 0;
 }
 
 int setStruct(const char* serialPort, int status){
-    fd = open(serialPort, O_RDWR | O_NOCTTY);
+    int fd = open(serialPort, O_RDWR | O_NOCTTY);
     if (fd < 0) {
         perror(serialPort); 
         exit(-1); 
@@ -428,6 +452,8 @@ int setStruct(const char* serialPort, int status){
 
 int llopen(const char* serialPort, int status){
     int fd = setStruct(serialPort, status);
+    int res;
+    char buf[255], received[255];
     
     switch(status){
         case TRANSMITTER: //TRANSMITTER
@@ -439,6 +465,9 @@ int llopen(const char* serialPort, int status){
             buf[4] = FLAG;  
 
             do {
+                if (app.numTries >= 1){
+                    printf("Retrying...\n");
+                }
                 printf("Writing SET\n");
                 res = write(fd, buf, 5);
                 printf("SET sent.\n");
@@ -446,8 +475,7 @@ int llopen(const char* serialPort, int status){
                 app.alarmFlag = 0;
 
                 printf("Waiting for UA...\n");
-                int error = readResponseSET();
-
+                int error = readResponseSET(fd);
             } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
             stopAlarm();
@@ -503,6 +531,9 @@ int llopen(const char* serialPort, int status){
 }
 
 int llclose(int fd, int status){
+    char buf[255], received[255];
+    int res;
+
     switch(status){
         case TRANSMITTER:
             buf[0] = FLAG;
@@ -518,7 +549,7 @@ int llclose(int fd, int status){
                 app.alarmFlag = 0;
                 //reading DISC frame
                 printf("Waiting for DISC...\n");
-                int error = readResponseDISC();
+                int error = readResponseDISC(fd);
 
             } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
@@ -606,6 +637,6 @@ int llclose(int fd, int status){
             return -1;
     }
 
-    stopConnection();
+    stopConnection(fd);
     return fd;
 }

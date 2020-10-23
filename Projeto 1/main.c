@@ -35,13 +35,53 @@ int main(int argc, char** argv)
 
   printf("\n\n");
   
-  char message[256] = "caralho esta merda que funciona senao vai haver cegada";
+  char message[256] = "ola";
   char buffer[256] = "";
   if (index == 0){
-    llwrite(fd, message, strlen(message));
+    if (llwrite(fd, message, strlen(message)) == -1) {
+		  perror("LLWRITE");
+		  return -1;
+	  }
   }
   else{
-    llread(fd, buffer);
+    if (llread(fd, buffer) == -1) {
+		  perror("LLREAD");
+		  return -1;
+	  }
+  }
+
+  printf("\n\n");
+
+  char message2[256] = "adeus";
+  char buffer2[256] = "";
+  if (index == 0){
+    if (llwrite(fd, message2, strlen(message2)) == -1) {
+		  perror("LLWRITE");
+		  return -1;
+	  }
+  }
+  else{
+    if (llread(fd, buffer2) == -1) {
+		  perror("LLREAD");
+		  return -1;
+	  }
+  }
+
+  printf("\n\n");
+
+  char message3[256] = "sryy";
+  char buffer3[256] = "";
+  if (index == 0){
+    if (llwrite(fd, message3, strlen(message3)) == -1) {
+		  perror("LLWRITE");
+		  return -1;
+	  }
+  }
+  else{
+    if (llread(fd, buffer3) == -1) {
+		  perror("LLREAD");
+		  return -1;
+	  }
   }
 
   printf("\n\n");
