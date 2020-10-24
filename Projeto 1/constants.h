@@ -16,4 +16,7 @@
 #define ESC         0x7D
 #define STUFFING    0x20
 
-#define SUCCESS0 0x05
+#define RR0	0x05
+#define RR1	0x85
+#define REJ0 0x81
+#define REJ1 0x01

@@ -175,13 +175,14 @@ int llwrite(int fd, char* packet, int size){
         frameSize = sendFrame(fd, packet, size);
         printf("Packet sent.\n");
         startAlarm();
-        app.alarmFlag = 0;
+        app.alarmFlag = 1;
 
         int val = checkSucess(fd, packet);
-        printf("Res: %d\n", val);
-        if (!checkSucess(fd, packet)){
+        if (!val){
+            if (app.ns == 0) app.ns = 1;
+            else if (app.ns == 1) app.ns = 0;
             stopAlarm();
-            app.alarmFlag = 1;
+            app.alarmFlag = 0;
             break;
         }
     } while (app.numTries < MAX_TRIES && app.alarmFlag);
@@ -274,7 +275,7 @@ int readFrame(int fd, char* packet){
     return len;
 }
 
-int destuff(char* packet, char* destuffed, int size){
+int destuff(char* packet, char* destuffed, int size, char* message){
     for (int x = 0; x < 4; x++){
         destuffed[x] = packet[x];
     }
@@ -297,13 +298,20 @@ int destuff(char* packet, char* destuffed, int size){
     destuffed[j++] = packet[i++];
     destuffed[j++] = packet[i++];
 
+    for (int x = 4; x < size - 2; x++){
+        message[x-4] = destuffed[x];
+    }
+
+    write(STDOUT_FILENO, message, strlen(message));
+    printf("\n");
+
     printf("Tamanho da frame: %d\n", i);
 
     return i;
 }
 
-int verifyPacket (char* destuffedFrame, int size){
-    if (destuffedFrame[0] != FLAG){
+int verifyPacket (char* destuffedFrame, int size, char* message){
+    if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
         printf("FLAG error\n");
         return 1;
     }
@@ -311,38 +319,45 @@ int verifyPacket (char* destuffedFrame, int size){
         printf("A_SET error\n");
         return 1;
     }
-    else if (app.ns == 0 && destuffedFrame[2] != BCC_NS0){
+    else if (destuffedFrame[2] != BCC_NS0 && destuffedFrame[2] != BCC_NS1){
         printf("BCC_NS0 error\n");
-        return 1;
-    }
-    else if (app.ns == 1 && destuffedFrame[2] != BCC_NS1){
-        printf("BCC_NS1 error\n");
         return 1;
     }
     else if (destuffedFrame[3] != (A_SET ^ BCC_NS1) && destuffedFrame[3] != (A_SET ^ BCC_NS0)){
         printf("BCC1 error\n");
         return 1;
     }
+    
+    char bcc2 = 0x00;
+
+	for (int i = 0; i < size; i++)
+		bcc2 ^= message[i];
+
+    if (bcc2 != destuffedFrame[size - 2]){
+        printf("BCC2 error\n");
+        return 1;
+    }
 
     return 0;
 }
 
-int buildResponse(char* response, int type){
+int buildResponse(unsigned char* response, char* flag){
     response[0] = FLAG;
     response[1] = A_SET;
     response[3] = BCC1;
     response[4] = FLAG;
+    
 
-    if (type == 1){
-        response[2] = 0x81;
-    }
-    else if (type == 2){
+    if (!strcmp("REJ1", flag)){
         response[2] = 0x01;
     }
-    else if (type == 3){
+    else if (!strcmp("REJ0", flag)){
+        response[2] = 0x81;
+    }
+    else if (!strcmp("RR1", flag)){
         response[2] = 0x85;
     }
-    else if (type == 4){
+    else if (!strcmp("RR0", flag)){
         response[2] = 0x05;
     }
 
@@ -358,33 +373,22 @@ int llread(int fd, char* packet){
     char* answer;
     int size = 0;
 
+    printf("%s\n", message);
+
     if ((size = readFrame(fd, packet)) > 0){
-        destuff(packet, destuffedFrame, size);
-
-        /*for (int x = 4; x < size - 2; x++){
-            if (destuffedFrame[x] != FLAG){
-                printf("%c\n", message[x-4]);
-                message[x-4] = destuffedFrame[x];
-            }
-        }*/
-
-        for (int x = 4; x < size - 2; x++){
-            message[x-4] = destuffedFrame[x];
-        }
+        destuff(packet, destuffedFrame, size, message);
 
         printf("Data size: %d\n", size);
-        write(STDOUT_FILENO, message, strlen(message));
-        printf("\n");
 
         //code smell magic numbers mas caguei, strings sao cenas que ao C nao assistem
-        if (verifyPacket(destuffedFrame, size)){
+        if (verifyPacket(destuffedFrame, size, message)){
             if (destuffedFrame[2] == BCC_NS0){
-                buildResponse(response, 1);
+                buildResponse(response, "REJ1");
                 write(fd, response, 5);
                 printf("REJ sent: 1\n");
             }
             else if (destuffedFrame[2] == BCC_NS1){
-                buildResponse(response, 2);
+                buildResponse(response, "REJ0");
                 write(fd, response, 5);
                 printf("REJ sent: 0\n");
             }
@@ -394,12 +398,12 @@ int llread(int fd, char* packet){
 
         else{
             if (destuffedFrame[2] == BCC_NS0){
-                buildResponse(response, 3);
+                buildResponse(response, "RR1");
                 write(fd, response, 5);
                 printf("RR sent: 1\n");
             }
             else if (destuffedFrame[2] == BCC_NS1){
-                buildResponse(response, 4);
+                buildResponse(response, "RR0");
                 write(fd, response, 5);
                 printf("RR sent: 0\n");
             }
@@ -472,10 +476,16 @@ int llopen(const char* serialPort, int status){
                 res = write(fd, buf, 5);
                 printf("SET sent.\n");
                 startAlarm();
-                app.alarmFlag = 0;
+                app.alarmFlag = 1;
 
                 printf("Waiting for UA...\n");
                 int error = readResponseSET(fd);
+
+                if (!error){
+                    stopAlarm();
+                    app.alarmFlag = 0;
+                    break;
+                }
             } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
             stopAlarm();
@@ -551,6 +561,12 @@ int llclose(int fd, int status){
                 printf("Waiting for DISC...\n");
                 int error = readResponseDISC(fd);
 
+                if (!error){
+                    stopAlarm();
+                    app.alarmFlag = 0;
+                    break;
+                }
+                
             } while (app.numTries < MAX_TRIES && app.alarmFlag);
 
             stopAlarm();
