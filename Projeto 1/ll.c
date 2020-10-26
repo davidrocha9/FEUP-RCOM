@@ -62,7 +62,7 @@ int readResponseDISC(int fd) {
 int stopConnection(int fd) {
     tcflush(fd, TCIOFLUSH);
 
-    if (tcsetattr(fd, TCSANOW, &app.oldtio) == -1) {
+    if (tcsetattr(fd, TCSANOW, &data.oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);
     }
@@ -79,15 +79,19 @@ int sendFrame(int fd, char* packet, int size){
     // Control front bytes
     frame[0] = FLAG;
     frame[1] = A_SET;
-    if (app.ns == 0)
+    if (data.ns == 0)
         frame[2] = BCC_NS0;
     else frame[2] = BCC_NS1;
     frame[3] = (A_SET ^ frame[2]);
 
     char bcc2 = 0x00;
 
-	for (int i = 0; i < size; i++)
+    printf("Inicio");
+	for (int i = 0; i < size; i++){
+        printf("%c\n", packet[i]);
 		bcc2 ^= packet[i];
+    }
+    printf("Fim");
 
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
@@ -169,31 +173,31 @@ int llwrite(int fd, char* packet, int size){
     int frameSize, res;
 
     do{
-        if (app.numTries >= 1){
+        if (data.numTries >= 1){
             printf("Retrying...\n");
         }
         frameSize = sendFrame(fd, packet, size);
         printf("Packet sent.\n");
         startAlarm();
-        app.alarmFlag = 1;
+        data.alarmFlag = 1;
 
         int val = checkSucess(fd, packet);
         if (!val){
-            if (app.ns == 0) app.ns = 1;
-            else if (app.ns == 1) app.ns = 0;
+            if (data.ns == 0) data.ns = 1;
+            else if (data.ns == 1) data.ns = 0;
             stopAlarm();
-            app.alarmFlag = 0;
+            data.alarmFlag = 0;
             break;
         }
-    } while (app.numTries < MAX_TRIES && app.alarmFlag);
+    } while (data.numTries < MAX_TRIES && data.alarmFlag);
 
     stopAlarm();
 
-    if (app.numTries >= MAX_TRIES) {
+    if (data.numTries >= MAX_TRIES) {
         printf("max number of tries achieved\n");
         return -1;
     }
-    app.numTries = 0;
+    data.numTries = 0;
 
     return frameSize;
 }
@@ -282,6 +286,7 @@ int destuff(char* packet, char* destuffed, int size, char* message){
 
     int j = 4;
 	int i;
+    int messagelen = 0;
 	for (i = 4; i < size - 2; i++) {
 		if (packet[i] == ESC) {
 			i++;
@@ -293,6 +298,8 @@ int destuff(char* packet, char* destuffed, int size, char* message){
 		else {
 			destuffed[j++] = packet[i];
 		}
+
+        messagelen++;
 	}
 
     destuffed[j++] = packet[i++];
@@ -302,15 +309,14 @@ int destuff(char* packet, char* destuffed, int size, char* message){
         message[x-4] = destuffed[x];
     }
 
-    write(STDOUT_FILENO, message, strlen(message));
     printf("\n");
 
     printf("Tamanho da frame: %d\n", i);
 
-    return i;
+    return messagelen;
 }
 
-int verifyPacket (char* destuffedFrame, int size, char* message){
+int verifyPacket (char* destuffedFrame, int size, char* message, int messageLen){
     if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
         printf("FLAG error\n");
         return 1;
@@ -330,8 +336,10 @@ int verifyPacket (char* destuffedFrame, int size, char* message){
     
     char bcc2 = 0x00;
 
-	for (int i = 0; i < size; i++)
-		bcc2 ^= message[i];
+	for (int i = 0; i < messageLen; i++){
+        printf("%c\n", message[i]);
+        bcc2 ^= message[i];
+    }
 
     if (bcc2 != destuffedFrame[size - 2]){
         printf("BCC2 error\n");
@@ -371,46 +379,44 @@ int llread(int fd, char* packet){
     memset(message,0,strlen(message));
     memset(response,0,strlen(response));
     char* answer;
-    int size = 0;
+    int size = 0, sucess = 0, messageLen = 0;
 
-    printf("%s\n", message);
+    while(!sucess){
+        if ((size = readFrame(fd, packet)) > 0){
+            messageLen = destuff(packet, destuffedFrame, size, message);
 
-    if ((size = readFrame(fd, packet)) > 0){
-        destuff(packet, destuffedFrame, size, message);
+            printf("Data size: %d\n", size);
 
-        printf("Data size: %d\n", size);
-
-        //code smell magic numbers mas caguei, strings sao cenas que ao C nao assistem
-        if (verifyPacket(destuffedFrame, size, message)){
-            if (destuffedFrame[2] == BCC_NS0){
-                buildResponse(response, "REJ1");
-                write(fd, response, 5);
-                printf("REJ sent: 1\n");
+            if (verifyPacket(destuffedFrame, size, message, messageLen)){
+                if (destuffedFrame[2] == BCC_NS0){
+                    buildResponse(response, "REJ1");
+                    write(fd, response, 5);
+                    printf("REJ sent: 1\n");
+                }
+                else if (destuffedFrame[2] == BCC_NS1){
+                    buildResponse(response, "REJ0");
+                    write(fd, response, 5);
+                    printf("REJ sent: 0\n");
+                }
             }
-            else if (destuffedFrame[2] == BCC_NS1){
-                buildResponse(response, "REJ0");
-                write(fd, response, 5);
-                printf("REJ sent: 0\n");
+            else{
+                if (destuffedFrame[2] == BCC_NS0){
+                    buildResponse(response, "RR1");
+                    write(fd, response, 5);
+                    printf("RR sent: 1\n");
+                }
+                else if (destuffedFrame[2] == BCC_NS1){
+                    buildResponse(response, "RR0");
+                    write(fd, response, 5);
+                    printf("RR sent: 0\n");
+                }
+
+                sucess = 1;
             }
 
-            return 0; 
         }
-
-        else{
-            if (destuffedFrame[2] == BCC_NS0){
-                buildResponse(response, "RR1");
-                write(fd, response, 5);
-                printf("RR sent: 1\n");
-            }
-            else if (destuffedFrame[2] == BCC_NS1){
-                buildResponse(response, "RR0");
-                write(fd, response, 5);
-                printf("RR sent: 0\n");
-            }
-        }
-
     }
-    return 0;
+    return size;
 }
 
 int setStruct(const char* serialPort, int status){
@@ -420,36 +426,36 @@ int setStruct(const char* serialPort, int status){
         exit(-1); 
     }
 
-    if (tcgetattr(fd, &app.oldtio) == -1) {
+    if (tcgetattr(fd, &data.oldtio) == -1) {
       perror("tcgetattr");
       exit(-1);
     }
 
-    bzero(&app.newtio, sizeof(app.newtio));
-    app.newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    app.newtio.c_iflag = IGNPAR;
-    app.newtio.c_oflag = 0;
+    bzero(&data.newtio, sizeof(data.newtio));
+    data.newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    data.newtio.c_iflag = IGNPAR;
+    data.newtio.c_oflag = 0;
 
-    app.newtio.c_lflag = 0;
+    data.newtio.c_lflag = 0;
 
-    app.newtio.c_cc[VTIME] = 0;
-    app.newtio.c_cc[VMIN] = 5;
+    data.newtio.c_cc[VTIME] = 0;
+    data.newtio.c_cc[VMIN] = 5;
 
     tcflush(fd, TCIOFLUSH);
 
-    if (tcsetattr(fd, TCSANOW, &app.newtio) == -1) {
+    if (tcsetattr(fd, TCSANOW, &data.newtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
 
     printf("New termios structure set\n");
 
-    strcpy(app.serialPort, serialPort);
-    app.status = status;
-    app.ns = 0;
-    app.timeouts = MAX_TIMEOUTS;
-    app.numTries = 0;
-    app.alarmFlag = 1;
+    strcpy(data.serialPort, serialPort);
+    data.status = status;
+    data.ns = 0;
+    data.timeouts = MAX_TIMEOUTS;
+    data.numTries = 0;
+    data.alarmFlag = 1;
 
     return fd;
 }
@@ -469,32 +475,32 @@ int llopen(const char* serialPort, int status){
             buf[4] = FLAG;  
 
             do {
-                if (app.numTries >= 1){
+                if (data.numTries >= 1){
                     printf("Retrying...\n");
                 }
                 printf("Writing SET\n");
                 res = write(fd, buf, 5);
                 printf("SET sent.\n");
                 startAlarm();
-                app.alarmFlag = 1;
+                data.alarmFlag = 1;
 
                 printf("Waiting for UA...\n");
                 int error = readResponseSET(fd);
 
                 if (!error){
                     stopAlarm();
-                    app.alarmFlag = 0;
+                    data.alarmFlag = 0;
                     break;
                 }
-            } while (app.numTries < MAX_TRIES && app.alarmFlag);
+            } while (data.numTries < MAX_TRIES && data.alarmFlag);
 
             stopAlarm();
 
-            if (app.numTries >= MAX_TRIES) {
+            if (data.numTries >= MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
-            app.numTries = 0;
+            data.numTries = 0;
             break;
 
 
@@ -556,22 +562,22 @@ int llclose(int fd, int status){
                 res = write(fd, buf, 5);
                 printf("DISC sent.\n");
                 startAlarm();
-                app.alarmFlag = 0;
+                data.alarmFlag = 0;
                 //reading DISC frame
                 printf("Waiting for DISC...\n");
                 int error = readResponseDISC(fd);
 
                 if (!error){
                     stopAlarm();
-                    app.alarmFlag = 0;
+                    data.alarmFlag = 0;
                     break;
                 }
                 
-            } while (app.numTries < MAX_TRIES && app.alarmFlag);
+            } while (data.numTries < MAX_TRIES && data.alarmFlag);
 
             stopAlarm();
 
-            if (app.numTries >= MAX_TRIES) {
+            if (data.numTries >= MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }

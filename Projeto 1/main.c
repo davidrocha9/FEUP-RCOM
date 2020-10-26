@@ -1,6 +1,6 @@
 /*Non-Canonical Input Processing*/
 
-#include "ll.h"
+#include "application.h"
 
 volatile int STOP=FALSE;
 
@@ -18,7 +18,7 @@ int main(int argc, char** argv)
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 
         (strcmp("/dev/ttyS11", argv[1])!=0) )) {
-    printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS1 0\n");
+    printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS1 0 (Sender) 1 (Receiver)\n");
     exit(1);
   }
 
@@ -28,13 +28,46 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
 
+  if (index == 0 && argc < 4){
+    printf("Usage for sender:\tnserial SerialPort Status FileName\n\tex: nserial /dev/ttyS1 0 pinguim.gif\n");
+    exit(1);
+  }
+
+  if (index == 0){
+    printf("%s\n", argv[3]);
+    readFileData(argv[3]);
+  }
+
   if ((fd = llopen(argv[1], atoi(argv[2]))) == -1) {
 		perror("LLOPEN");
 		return -1;
 	}
 
   printf("\n\n");
-  
+
+  switch(index){
+    case 0:
+      if(sendFile(fd) == -1) {
+        perror("SENDING FILE");
+        return -1;
+		  }
+      break;
+    case 1:
+      if(readFile(fd) == -1) {
+        perror("RECEIVING FILE");
+        return -1;
+		  }
+      break;
+  }
+
+  printf("\n\n");
+
+  if (llclose(fd, atoi(argv[2])) == -1) {
+		perror("LLCLOSE");
+		return -1;
+	}
+
+  /*
   char message[256] = "ola";
   char buffer[256] = "";
   if (index == 0){
@@ -49,49 +82,8 @@ int main(int argc, char** argv)
 		  return -1;
 	  }
   }
-
-  printf("\n\n");
-
-  char message2[256] = "adeus";
-  char buffer2[256] = "";
-  if (index == 0){
-    if (llwrite(fd, message2, strlen(message2)) == -1) {
-		  perror("LLWRITE");
-		  return -1;
-	  }
-  }
-  else{
-    if (llread(fd, buffer2) == -1) {
-		  perror("LLREAD");
-		  return -1;
-	  }
-  }
-
-  printf("\n\n");
-
-  char message3[256] = "sryy";
-  char buffer3[256] = "";
-  if (index == 0){
-    if (llwrite(fd, message3, strlen(message3)) == -1) {
-		  perror("LLWRITE");
-		  return -1;
-	  }
-  }
-  else{
-    if (llread(fd, buffer3) == -1) {
-		  perror("LLREAD");
-		  return -1;
-	  }
-  }
-
-  printf("\n\n");
-
-  if (llclose(fd, atoi(argv[2])) == -1) {
-		perror("LLCLOSE");
-		return -1;
-	}
-
-  /*size_t len;
+  
+  size_t len;
   if(gets(buf)==NULL){
       perror("gets");
       exit(-1);

@@ -4,9 +4,9 @@ void alarm_handler(int signal) {
 
     if(signal != SIGALRM)
         return;
-    app.numTries++;
-    app.timeouts++;
-    app.alarmFlag = 1;
+    data.numTries++;
+    data.timeouts++;
+    data.alarmFlag = 1;
 }
 
 void startAlarm() {

@@ -10,7 +10,7 @@
 
 #define MAX_TIMEOUTS 3
 
-struct applicationLayer {
+struct dataTransfered {
   char serialPort[64];
   unsigned int status;
   int ns;
@@ -18,7 +18,7 @@ struct applicationLayer {
   unsigned int numTries;
   unsigned int alarmFlag;
   struct termios oldtio, newtio;
-} app;
+} data;
 
 
 void alarm_handler(int signal);
