@@ -265,7 +265,7 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 
     int j = 4;
 	int i;
-	for (i = 4; i < size - 2; i++) {
+	for (i = 4; i < size - 1; i++) {
 		if (packet[i] == ESC) {
 			i++;
 			if (packet[i] == (FLAG ^ STUFFING))
@@ -277,8 +277,6 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 			destuffed[j++] = packet[i];
 		}
 	}
-
-    destuffed[j++] = packet[i++];
     destuffed[j++] = packet[i++];
 
     for (int x = 4; x < size - 2; x++){
@@ -290,12 +288,12 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 
     printf("Tamanho da frame: %d\n", i);
 
-    return i;
+    return j;
 }
 
 int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message){
     printf("Tamanho da sit: %d\n", size);
-    if (destuffedFrame[0] != FLAG){
+    if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
         printf("FLAG error\n");
         return 1;
     }
@@ -361,7 +359,7 @@ int llread(int fd, unsigned char* packet, unsigned char* message){
 
         printf("Data size: %d\n", size);
 
-        if (verifyPacket(destuffedFrame, size, message)){
+        if (verifyPacket(destuffedFrame, destuffedlen, message)){
             if (destuffedFrame[2] == BCC_NS0){
                 buildResponse(response, "REJ1");
                 write(fd, response, 5);
