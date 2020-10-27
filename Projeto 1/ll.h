@@ -15,10 +15,10 @@ int llopen(const char* port, int role);
 
 int llclose(int fd, int status);
 
-int sendFrame(int fd, char* packet, int size);
+int sendFrame(int fd, unsigned char* packet, int size);
 
-int llwrite(int fd, char* packet, int size);
+int llwrite(int fd, unsigned char* packet, int size);
 
-int llread(int fd, char* packet);
+int llread(int fd, unsigned char* packet, unsigned char* message);
 
 int setStruct(const char* serialPort, int status);

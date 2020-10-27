@@ -1,11 +1,11 @@
 #include "ll.h"
 
-/*char buf[255];
-char received[255];
+/*unsigned char buf[255];
+unsigned char received[255];
 int res, fd;*/
 
 int readResponseSET(int fd) {
-    char received[255];
+    unsigned char received[255];
     int res = read(fd, received, 5);
     printf("Received SET. Checking values...\n");
 
@@ -33,7 +33,7 @@ int readResponseSET(int fd) {
 }
 
 int readResponseDISC(int fd) {
-    char received[255];
+    unsigned char received[255];
     int res = read(fd, received, 5);
     printf("Received DISC. Checking values...\n");
 
@@ -71,9 +71,9 @@ int stopConnection(int fd) {
     return 0;
 }
 
-int sendFrame(int fd, char* packet, int size){
+int sendFrame(int fd, unsigned char* packet, int size){
     unsigned int maxSize = 6 + 2*size; // worst case scenario, every byte has to be stuffed (size duplicates) except for the control bytes (6) 
-    char frame[maxSize];
+    unsigned char frame[maxSize];
     int index = 0;
 
     // Control front bytes
@@ -84,14 +84,10 @@ int sendFrame(int fd, char* packet, int size){
     else frame[2] = BCC_NS1;
     frame[3] = (A_SET ^ frame[2]);
 
-    char bcc2 = 0x00;
+    unsigned char bcc2 = 0x00;
 
-    printf("Inicio");
-	for (int i = 0; i < size; i++){
-        printf("%c\n", packet[i]);
+	for (int i = 0; i < size; i++)
 		bcc2 ^= packet[i];
-    }
-    printf("Fim");
 
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
@@ -104,26 +100,18 @@ int sendFrame(int fd, char* packet, int size){
         index++;
     }
 
-    frame[4 + index] = bcc2;
-    index++;
-    frame[4 + index] = FLAG;
-
-    int totalSize = index + 5;
-
-
     // Control back bytes
-    /*if (bcc2 == FLAG || bcc2 == ESC){
+    if (bcc2 == FLAG || bcc2 == ESC){
         frame[4+index] = ESC;
         frame[4+index+1] = bcc2 ^ STUFFING;
         index++;
     }
-    else frame[index] = bcc2;
+    else frame[4 + index] = bcc2;
     index++;
+    frame[4 + index] = FLAG;
+    
 
-    frame[index] = FLAG;
-    */
-
-    //frame[index + 4] = FLAG;;
+    int totalSize = index + 5;
 
     write(fd, frame, totalSize);
     printf("Size sent: %d\n", totalSize);
@@ -131,9 +119,9 @@ int sendFrame(int fd, char* packet, int size){
     return totalSize;  
 }
 
-int checkSucess(int fd, char* packet){
-    char response[256];
-    char temp[4];
+int checkSucess(int fd, unsigned char* packet){
+    unsigned char response[256];
+    unsigned char temp[4];
 
     temp[0] = 0x01;
     temp[1] = 0x81;
@@ -169,7 +157,7 @@ int checkSucess(int fd, char* packet){
     return 1;
 }
 
-int llwrite(int fd, char* packet, int size){
+int llwrite(int fd, unsigned char* packet, int size){
     int frameSize, res;
 
     do{
@@ -189,6 +177,7 @@ int llwrite(int fd, char* packet, int size){
             data.alarmFlag = 0;
             break;
         }
+        data.numTries++;
     } while (data.numTries < MAX_TRIES && data.alarmFlag);
 
     stopAlarm();
@@ -202,7 +191,7 @@ int llwrite(int fd, char* packet, int size){
     return frameSize;
 }
 
-void checkFrameState(State *state, char byte){
+void checkFrameState(State *state, unsigned char byte){
     switch(*state){
         case START:
             if (byte == FLAG) *state = FLAG_RCVD;
@@ -251,42 +240,31 @@ void checkFrameState(State *state, char byte){
     }
 }
 
-int readFrame(int fd, char* packet){
+int readFrame(int fd, unsigned char* packet){
     int len = 0, msgIndex = 0;
-    char byte, bcc2 = 0x00;
+    unsigned char byte, bcc2 = 0x00;
     State state = START; 
-    char msg[1024];
+    unsigned char msg[3000];
     while (1){
         read(fd, &byte, 1);
         checkFrameState(&state, byte);
         packet[len] = byte;
         len++;
         if (state == END){
-            for (int x = 4; x < len - 2; x++){
-                msg[msgIndex] = packet[x];
-                msgIndex++;
-            }
-            
-            for (int i = 0; i < msgIndex; i++)
-		        bcc2 ^= msg[i];
-
-            if (packet[len - 2] == bcc2) break;
-            else return 0;
-
+            break;
         }
     }
 
     return len;
 }
 
-int destuff(char* packet, char* destuffed, int size, char* message){
+int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned char* message){
     for (int x = 0; x < 4; x++){
         destuffed[x] = packet[x];
     }
 
     int j = 4;
 	int i;
-    int messagelen = 0;
 	for (i = 4; i < size - 2; i++) {
 		if (packet[i] == ESC) {
 			i++;
@@ -298,8 +276,6 @@ int destuff(char* packet, char* destuffed, int size, char* message){
 		else {
 			destuffed[j++] = packet[i];
 		}
-
-        messagelen++;
 	}
 
     destuffed[j++] = packet[i++];
@@ -309,15 +285,17 @@ int destuff(char* packet, char* destuffed, int size, char* message){
         message[x-4] = destuffed[x];
     }
 
+    //write(STDOUT_FILENO, message, strlen(message));
     printf("\n");
 
     printf("Tamanho da frame: %d\n", i);
 
-    return messagelen;
+    return i;
 }
 
-int verifyPacket (char* destuffedFrame, int size, char* message, int messageLen){
-    if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
+int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message){
+    printf("Tamanho da sit: %d\n", size);
+    if (destuffedFrame[0] != FLAG){
         printf("FLAG error\n");
         return 1;
     }
@@ -334,22 +312,20 @@ int verifyPacket (char* destuffedFrame, int size, char* message, int messageLen)
         return 1;
     }
     
-    char bcc2 = 0x00;
+    unsigned char bcc2 = 0x00;
 
-	for (int i = 0; i < messageLen; i++){
-        printf("%c\n", message[i]);
-        bcc2 ^= message[i];
-    }
+	for (int i = 0; i < size; i++)
+		bcc2 ^= message[i];
 
-    if (bcc2 != destuffedFrame[size - 2]){
+    /*if (bcc2 != destuffedFrame[size - 2]){
         printf("BCC2 error\n");
         return 1;
-    }
+    }*/
 
     return 0;
 }
 
-int buildResponse(unsigned char* response, char* flag){
+int buildResponse(unsigned char* response, unsigned char* flag){
     response[0] = FLAG;
     response[1] = A_SET;
     response[3] = BCC1;
@@ -372,51 +348,48 @@ int buildResponse(unsigned char* response, char* flag){
     return 0;
 }
 
-int llread(int fd, char* packet){
-    char destuffedFrame[1024];
-    char message[256];
-    char response[256];
+int llread(int fd, unsigned char* packet, unsigned char* message){
+    unsigned char destuffedFrame[3000];
+    unsigned char response[3000];
     memset(message,0,strlen(message));
     memset(response,0,strlen(response));
-    char* answer;
-    int size = 0, sucess = 0, messageLen = 0;
+    unsigned char* answer;
+    int size = 0, destuffedlen = 0;
 
-    while(!sucess){
-        if ((size = readFrame(fd, packet)) > 0){
-            messageLen = destuff(packet, destuffedFrame, size, message);
+    if ((size = readFrame(fd, packet)) > 0){
+        destuffedlen = destuff(packet, destuffedFrame, size, message);
 
-            printf("Data size: %d\n", size);
+        printf("Data size: %d\n", size);
 
-            if (verifyPacket(destuffedFrame, size, message, messageLen)){
-                if (destuffedFrame[2] == BCC_NS0){
-                    buildResponse(response, "REJ1");
-                    write(fd, response, 5);
-                    printf("REJ sent: 1\n");
-                }
-                else if (destuffedFrame[2] == BCC_NS1){
-                    buildResponse(response, "REJ0");
-                    write(fd, response, 5);
-                    printf("REJ sent: 0\n");
-                }
+        if (verifyPacket(destuffedFrame, size, message)){
+            if (destuffedFrame[2] == BCC_NS0){
+                buildResponse(response, "REJ1");
+                write(fd, response, 5);
+                printf("REJ sent: 1\n");
             }
-            else{
-                if (destuffedFrame[2] == BCC_NS0){
-                    buildResponse(response, "RR1");
-                    write(fd, response, 5);
-                    printf("RR sent: 1\n");
-                }
-                else if (destuffedFrame[2] == BCC_NS1){
-                    buildResponse(response, "RR0");
-                    write(fd, response, 5);
-                    printf("RR sent: 0\n");
-                }
-
-                sucess = 1;
+            else if (destuffedFrame[2] == BCC_NS1){
+                buildResponse(response, "REJ0");
+                write(fd, response, 5);
+                printf("REJ sent: 0\n");
             }
 
+            return 0; 
         }
+        else{
+            if (destuffedFrame[2] == BCC_NS0){
+                buildResponse(response, "RR1");
+                write(fd, response, 5);
+                printf("RR sent: 1\n");
+            }
+            else if (destuffedFrame[2] == BCC_NS1){
+                buildResponse(response, "RR0");
+                write(fd, response, 5);
+                printf("RR sent: 0\n");
+            }
+        }
+
     }
-    return size;
+    return destuffedlen;
 }
 
 int setStruct(const char* serialPort, int status){
@@ -463,7 +436,7 @@ int setStruct(const char* serialPort, int status){
 int llopen(const char* serialPort, int status){
     int fd = setStruct(serialPort, status);
     int res;
-    char buf[255], received[255];
+    unsigned char buf[255], received[255];
     
     switch(status){
         case TRANSMITTER: //TRANSMITTER
@@ -547,7 +520,7 @@ int llopen(const char* serialPort, int status){
 }
 
 int llclose(int fd, int status){
-    char buf[255], received[255];
+    unsigned char buf[255], received[255];
     int res;
 
     switch(status){

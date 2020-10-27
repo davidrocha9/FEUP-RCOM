@@ -33,9 +33,9 @@ int main(int argc, char** argv)
     exit(1);
   }
 
+
   if (index == 0){
-    printf("%s\n", argv[3]);
-    readFileData(argv[3]);
+    readFileData(argv[3]);  
   }
 
   if ((fd = llopen(argv[1], atoi(argv[2]))) == -1) {
@@ -57,15 +57,33 @@ int main(int argc, char** argv)
         perror("RECEIVING FILE");
         return -1;
 		  }
+      return 0;
       break;
   }
 
+  /*char message2[256] = "adeus";
+  char buffer2[256] = "";
+  char buffer3[256] = "";
+  if (index == 0){
+    if (llwrite(fd, message2, strlen(message2)) == -1) {
+		  perror("LLWRITE");
+		  return -1;
+	  }
+  }
+  else{
+    if (llread(fd, buffer2, buffer3) == -1) {
+		  perror("LLREAD");
+		  return -1;
+	  }
+    printf("%s\n", buffer3);
+  }*/
+
   printf("\n\n");
 
-  if (llclose(fd, atoi(argv[2])) == -1) {
+  /*if (llclose(fd, atoi(argv[2])) == -1) {
 		perror("LLCLOSE");
 		return -1;
-	}
+	}*/
 
   /*
   char message[256] = "ola";

@@ -12,5 +12,7 @@ int readFile(int fd);
 struct fileData {
     char* fileName;
     int fileSize;
-    int fd;
+    int file_fd;
+    int fdNewFile;
+    int serialPort;
 } file_data;
