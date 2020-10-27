@@ -127,7 +127,6 @@ int sendFile(int fd){
     sendDataPacket();
 
     controlPacket(fd, END);
-    
     return 0;
 }
 

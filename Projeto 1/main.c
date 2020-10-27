@@ -57,7 +57,6 @@ int main(int argc, char** argv)
         perror("RECEIVING FILE");
         return -1;
 		  }
-      return 0;
       break;
   }
 
@@ -80,10 +79,10 @@ int main(int argc, char** argv)
 
   printf("\n\n");
 
-  /*if (llclose(fd, atoi(argv[2])) == -1) {
+  if (llclose(fd, atoi(argv[2])) == -1) {
 		perror("LLCLOSE");
 		return -1;
-	}*/
+	}
 
   /*
   char message[256] = "ola";

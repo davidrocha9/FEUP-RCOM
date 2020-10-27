@@ -89,6 +89,8 @@ int sendFrame(int fd, unsigned char* packet, int size){
 	for (int i = 0; i < size; i++)
 		bcc2 ^= packet[i];
 
+    printf("%d\n", bcc2);
+
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
             frame[index + 4] = ESC;
@@ -292,7 +294,6 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 }
 
 int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message){
-    printf("Tamanho da sit: %d\n", size);
     if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
         printf("FLAG error\n");
         return 1;
@@ -312,13 +313,15 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* messag
     
     unsigned char bcc2 = 0x00;
 
-	for (int i = 0; i < size; i++)
+	for (int i = 0; i < size - 6; i++)
 		bcc2 ^= message[i];
 
-    /*if (bcc2 != destuffedFrame[size - 2]){
+    printf("%d\n", bcc2);
+
+    if (bcc2 != destuffedFrame[size - 2]){
         printf("BCC2 error\n");
         return 1;
-    }*/
+    }
 
     return 0;
 }
