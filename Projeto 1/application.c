@@ -27,6 +27,7 @@ int controlPacket(int fd, int type){
         packet[0] = 0x02;
     else
         packet[0] = 0x03;
+
     packet[1] = 0x00;
     packet[2] = sizeof(file_data.fileSize);
     packet[3] = (file_data.fileSize >> 24) & 0xFF;
@@ -47,73 +48,91 @@ int controlPacket(int fd, int type){
         exit(1);
     }
 
-    return 0;
+    return packetSize;
+}
+
+void getName(char* newFileName, char* message, int size, int index){
+    for (int x = 0; x < size; x++){
+        newFileName[x] = message[index];
+        index++;
+
+        if(x == size - 1){
+            message[index] = '\0';
+            index++;
+        }
+    }
 }
 
 int readControlPacket(unsigned char* controlPacket){
     unsigned char message[1024];
     int size = llread(file_data.serialPort, controlPacket, message);
-    char* newFile;
-    int index = 0, newFilesize = 0;
+    int index = 0, newFilesize = 0, fileSize = 0;
     
-    if (message[index] == 0x02){ //START
+    if (message[index] == 0x02){
         index += 7;
-        if (message[index] == 0x01){
-            index++;
-            newFile = (char*) malloc(message[index]+1);
-            newFilesize = message[index];
-            index++;
-
-            for (int x = 0; x < newFilesize; x++){
-                newFile[x] = message[index];
+        switch(message[index]){
+            case 0x00:
+                index += 2;
+                fileSize += (message[index] << 24);
+                index++;
+                fileSize += (message[index] << 16);
+                index++;
+                fileSize += (message[index] << 8);
+                index++;
+                fileSize += message[index];
+                break;
+            case 0x01:
+                index++;
+                newFilesize = message[index];
+                char* newFileName = (char*) malloc(newFilesize+1);
                 index++;
 
-                if(x == newFilesize - 1){
-                    message[index] = '\0';
-                    index++;
-                }
-            }
+                getName(newFileName, message, newFilesize, index);
 
-            file_data.fdNewFile = open("marega2",O_WRONLY | O_CREAT | O_APPEND, 0664);
+                file_data.fdNewFile = open("marega2",O_WRONLY | O_CREAT | O_APPEND, 0664);
+                break;
+            default:
+                break;
         }
     }
 
     return size;
 }
 
+void createPacket(unsigned char* packet, unsigned char* buffer, int size, int packetsSent){
+    packet[0] = 0x01;
+    packet[1] = packetsSent % 255;
+    packet[2] = size / 256;
+    packet[3] = size % 256;
+
+    for (int x = 0; x < 1024; x++){
+        packet[4 + x] = buffer[x];
+    }
+}
+
 int sendDataPacket(){
-    int numPacketsSent = 0;
-    int numPacketsToSend = file_data.fileSize/1024;            // numero máximo de de octetos num packet
+    int packetsSent = 0, packetsUnsent = file_data.fileSize/1024;
     unsigned char buffer[1024];
-    int bytesRead = 0;
+    int size = 0;
     int length = 0;
 
     if(file_data.fileSize%1024 != 0){
-        numPacketsToSend++;
+        packetsUnsent++;
     }
 
-    while(numPacketsSent < numPacketsToSend){
-        if((bytesRead = read(file_data.file_fd,buffer,1024)) < 0){
+    while(packetsSent < packetsUnsent){
+        if((size = read(file_data.file_fd,buffer,1024)) < 0){
             printf("Error reading file\n");
         }
 
-        printf("%d\n", bytesRead);
-
         unsigned char packet[4+1024];
-        packet[0] = 0x01;
-        packet[1] = numPacketsSent % 255;
-        packet[2] = bytesRead / 256;
-        packet[3] = bytesRead % 256;
+        createPacket(packet, buffer, size, packetsSent);
 
-        for (int x = 0; x < 1024; x++){
-            packet[4 + x] = buffer[x];
-        }
-        length = bytesRead + 4;
-        if(llwrite(file_data.serialPort,packet,length) < length){
+        if(llwrite(file_data.serialPort,packet,size + 4) < (size + 4)){
             printf("Error writing data packet to serial port!\n");
             return -1;
         }
-        numPacketsSent++;
+        packetsSent++;
     }
 
 
@@ -122,15 +141,25 @@ int sendDataPacket(){
 
 int sendFile(int fd){
     file_data.serialPort = fd;
-    controlPacket(fd, START);
 
-    sendDataPacket();
+    if (controlPacket(fd, START) < 0){
+        perror("CONTROL PACKET");
+        exit(1);
+    }
 
-    controlPacket(fd, END);
+    if (sendDataPacket() < 0){
+        perror("DATA PACKETS");
+        exit(1);
+    }
+
+    if (controlPacket(fd, END) < 0){
+        perror("CONTROL PACKET");
+        exit(1);
+    }
     return 0;
 }
 
-int processDataPackets(unsigned char* packet){
+int writeDataToFile(unsigned char* packet){
     
     int informationSize = 256*packet[2]+packet[3];
  
@@ -139,23 +168,32 @@ int processDataPackets(unsigned char* packet){
     return 0;
 }
 
+int readPacket(int fd){
+    unsigned char buffer[2048], buffer2[2048];
+
+    if(llread(fd,buffer2, buffer) > 0){
+        switch(buffer[0]){
+            case 0x01:
+                writeDataToFile(buffer);
+                break;
+            case 0x03:
+                return 1;
+            default:
+                break;
+        }
+    }
+
+    return 0;
+}
+
 int readFile(int fd){
     unsigned char controlPacket[1024];
-    unsigned char buffer[2048], buffer2[2048];
     file_data.serialPort = fd;
-    int stop = 0;
 
-    int size = readControlPacket(controlPacket);
+    readControlPacket(controlPacket);
 
-    while(!stop){
-        if(llread(fd,buffer2, buffer) != 0){
-            if(buffer[0] == 0x01){
-                processDataPackets(buffer);
-            }
-            else if(buffer[0] == 0x03){
-                stop = 1;
-            }
-        }
+    while(1){
+        if (readPacket(fd)) break; 
     }
 
     close(file_data.fdNewFile);
