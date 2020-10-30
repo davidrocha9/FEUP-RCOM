@@ -105,28 +105,31 @@ void createPacket(unsigned char* packet, unsigned char* buffer, int size, int pa
     packet[2] = size / 256;
     packet[3] = size % 256;
 
-    for (int x = 0; x < 1024; x++){
+    for (int x = 0; x < 500; x++){
         packet[4 + x] = buffer[x];
     }
 }
 
 int sendDataPacket(){
-    int packetsSent = 0, packetsUnsent = file_data.fileSize/1024;
+    int packetsSent = 0, packetsUnsent = file_data.fileSize/500;
     unsigned char buffer[1024];
     int size = 0;
     int length = 0;
 
-    if(file_data.fileSize%1024 != 0){
+    if(file_data.fileSize%500 != 0){
         packetsUnsent++;
     }
 
+    int index = 0;
     while(packetsSent < packetsUnsent){
-        if((size = read(file_data.file_fd,buffer,1024)) < 0){
+        if((size = read(file_data.file_fd,buffer,500)) < 0){
             printf("Error reading file\n");
         }
-
+        index++;
         unsigned char packet[4+1024];
         createPacket(packet, buffer, size, packetsSent);
+
+        printf("Iteracao %d\n", index);
 
         if(llwrite(file_data.serialPort,packet,size + 4) < (size + 4)){
             printf("Error writing data packet to serial port!\n");

@@ -85,8 +85,6 @@ int sendFrame(int fd, unsigned char* packet, int size){
 	for (int i = 0; i < size; i++)
 		bcc2 ^= packet[i];
 
-    printf("%d\n", bcc2);
-
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
             frame[index + 4] = ESC;
@@ -119,6 +117,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
+    memset(response,0,strlen(response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -133,19 +132,25 @@ int checkSucess(int fd, unsigned char* packet){
         printf("BCC1 error\n");
         return 1;
     }
-    
+
+    printf("%c\n", response[2]);
+
     switch(response[2]){
-        case 0x01:
+        case 1:
             return 1;
-        case 0x81:
+        case 2:
             return 1;
-        case 0x05:
+        case 3:
+            printf("aceite\n");
             return 0;
-        case 0x85:
+        case 4:
+            printf("aceite\n");
             return 0;
         default:
             return 1;
     }
+
+    printf("xau\n");
 
     return 1;
 }
@@ -164,13 +169,15 @@ int llwrite(int fd, unsigned char* packet, int size){
 
         int val = checkSucess(fd, packet);
         if (!val){
+            printf("sucesso\n");
             if (data.ns == 0) data.ns = 1;
             else if (data.ns == 1) data.ns = 0;
             stopAlarm();
             data.alarmFlag = 0;
             break;
         }
-        data.numTries++;
+        else{printf("sem sucesso\n");
+        printf("num try %d\n", data.numTries);}
     } while (data.numTries < MAX_TRIES && data.alarmFlag);
 
     stopAlarm();
@@ -314,16 +321,16 @@ int buildResponse(unsigned char* response, unsigned char* flag){
     
 
     if (!strcmp("REJ1", flag)){
-        response[2] = 0x01;
+        response[2] = 1;
     }
     else if (!strcmp("REJ0", flag)){
-        response[2] = 0x81;
+        response[2] = 2;
     }
     else if (!strcmp("RR1", flag)){
-        response[2] = 0x85;
+        response[2] = 3;
     }
     else if (!strcmp("RR0", flag)){
-        response[2] = 0x05;
+        response[2] = 4;
     }
 
     return 0;
