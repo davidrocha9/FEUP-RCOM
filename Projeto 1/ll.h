@@ -11,14 +11,32 @@
 
 typedef enum {START, FLAG_RCVD, A_RCVD, C_RCVD, BCC1_RCVD, BCC2_RCVD, DATA_RCVD, END} State;
 
-int llopen(const char* port, int role);
+int readResponseSET(int fd);
 
-int llclose(int fd, int status);
+int readResponseDISC(int fd);
+
+int stopConnection(int fd);
 
 int sendFrame(int fd, unsigned char* packet, int size);
 
+int checkSucess(int fd, unsigned char* packet);
+
 int llwrite(int fd, unsigned char* packet, int size);
+
+void stateMachine(State *state, unsigned char byte);
+
+int readFrame(int fd, unsigned char* packet);
+
+int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned char* message);
+
+int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message);
+
+int buildResponse(unsigned char* response, unsigned char* flag);
 
 int llread(int fd, unsigned char* packet, unsigned char* message);
 
-int setStruct(const char* serialPort, int status);
+int setStruct(const char* serialPort, int status, const char* baudrate);
+
+int llopen(const char* serialPort, int status, const char* baudrate);
+
+int llclose(int fd, int status);

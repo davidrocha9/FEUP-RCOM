@@ -1,5 +1,11 @@
 #include "application.h"
 
+int structSetUp(char* fileName, int packetSize, int fdPort) {
+    file_data.fileName = fileName;
+    file_data.packetSize = packetSize;
+    file_data.serialPort = fdPort;
+}
+
 int readFileData(char* file_name){
     struct stat buf;
     int fd = open(file_name, O_RDONLY);
@@ -16,7 +22,6 @@ int readFileData(char* file_name){
     file_data.file_fd = fd;
     file_data.fileSize = buf.st_size;
 	file_data.fileName = file_name;
-
     return 0;
 }
 
@@ -28,7 +33,7 @@ int controlPacket(int fd, int type){
     else
         packet[0] = 0x03;
 
-    packet[1] = 0x00;
+    packet[1] = 0x00; //pq valores diferentes dos do cr9 e queirus
     packet[2] = sizeof(file_data.fileSize);
     packet[3] = (file_data.fileSize >> 24) & 0xFF;
     packet[4] = (file_data.fileSize >> 16) & 0xFF;
@@ -43,7 +48,7 @@ int controlPacket(int fd, int type){
 
     int packetSize = strlen(file_data.fileName) + 9 * sizeof(unsigned char);
 
-    if (llwrite(fd, packet, packetSize) < 0){
+    if (llwrite(fd, packet, packetSize) < packetSize){ //0 ou packetSize?
         perror("LLWRITE START CONTROL PACKET\n");
         exit(1);
     }
@@ -56,7 +61,7 @@ void getName(char* newFileName, char* message, int size, int index){
         newFileName[x] = message[index];
         index++;
 
-        if(x == size - 1){
+        if(x == size - 1) {
             message[index] = '\0';
             index++;
         }
@@ -64,11 +69,11 @@ void getName(char* newFileName, char* message, int size, int index){
 }
 
 int readControlPacket(unsigned char* controlPacket){
-    unsigned char message[1024];
+    unsigned char message[file_data.packetSize];
     int size = llread(file_data.serialPort, controlPacket, message);
     int index = 0, newFilesize = 0, fileSize = 0;
     
-    if (message[index] == 0x02){
+    if (message[index] == 0x02){ //explicar isto bruv
         index += 7;
         switch(message[index]){
             case 0x00:
@@ -89,7 +94,7 @@ int readControlPacket(unsigned char* controlPacket){
 
                 getName(newFileName, message, newFilesize, index);
 
-                file_data.fdNewFile = open("marega2",O_WRONLY | O_CREAT | O_APPEND, 0664);
+                file_data.fdNewFile = open("marega2", O_WRONLY | O_CREAT | O_APPEND, 0664);
                 break;
             default:
                 break;
@@ -105,33 +110,34 @@ void createPacket(unsigned char* packet, unsigned char* buffer, int size, int pa
     packet[2] = size / 256;
     packet[3] = size % 256;
 
-    for (int x = 0; x < 1024; x++){
+    for (int x = 0; x < file_data.packetSize; x++){
         packet[4 + x] = buffer[x];
     }
 }
 
 int sendDataPacket(){
-    int packetsSent = 0, packetsUnsent = file_data.fileSize/1024;
-    unsigned char buffer[1024];
+    int packetsSent = 0, packetsUnsent = file_data.fileSize / file_data.packetSize;
+    unsigned char buffer[file_data.packetSize];
     int size = 0;
     int length = 0;
 
-    if(file_data.fileSize%1024 != 0){
+    if(file_data.fileSize % file_data.packetSize != 0){
         packetsUnsent++;
     }
 
     int index = 0;
     while(packetsSent < packetsUnsent){
-        if((size = read(file_data.file_fd,buffer,1024)) < 0){
+        if((size = read(file_data.file_fd, buffer, file_data.packetSize)) < 0) {
             printf("Error reading file\n");
         }
         index++;
-        unsigned char packet[4+1024];
+        unsigned char packet[4 + file_data.packetSize];
         createPacket(packet, buffer, size, packetsSent);
 
-        printf("Iteracao %d\n", index);
+        printf("Iteration %d\n", index);
 
-        if(llwrite(file_data.serialPort,packet,size + 4) < (size + 4)){
+        length = size + 4;
+        if(llwrite(file_data.serialPort, packet, length) < length){
             printf("Error writing data packet to serial port!\n");
             return -1;
         }
@@ -143,8 +149,6 @@ int sendDataPacket(){
 }
 
 int sendFile(int fd){
-    file_data.serialPort = fd;
-
     if (controlPacket(fd, START) < 0){
         perror("CONTROL PACKET");
         exit(1);
@@ -166,7 +170,7 @@ int writeDataToFile(unsigned char* packet){
     
     int informationSize = 256*packet[2]+packet[3];
  
-    write(file_data.fdNewFile,packet+4,informationSize);
+    write(file_data.fdNewFile, packet + 4, informationSize);
 
     return 0;
 }
@@ -174,7 +178,7 @@ int writeDataToFile(unsigned char* packet){
 int readPacket(int fd){
     unsigned char buffer[131082], buffer2[131082];
 
-    if(llread(fd,buffer2, buffer) > 0){
+    if(llread(fd, buffer2, buffer) > 0){
         switch(buffer[0]){
             case 0x01:
                 writeDataToFile(buffer);
@@ -190,11 +194,10 @@ int readPacket(int fd){
 }
 
 int readFile(int fd){
-    unsigned char controlPacket[1024];
-    file_data.serialPort = fd;
+    unsigned char controlPacket[file_data.packetSize + 4];
 
     readControlPacket(controlPacket);
-
+    
     while(1){
         if (readPacket(fd)) break; 
     }

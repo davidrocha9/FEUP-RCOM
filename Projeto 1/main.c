@@ -2,18 +2,11 @@
 
 #include "application.h"
 
-volatile int STOP=FALSE;
-
-char sent[255];
-char received[255];
-int res, fd;
-char buf[255];
-
 int main(int argc, char** argv)
 {
   int c;
   struct termios oldtio, newtio;
-  int i, sum = 0, speed = 0;
+  int fd, i, sum = 0, speed = 0;
   
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 
@@ -28,20 +21,33 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
 
-  if (index == 0 && argc < 4){
-    printf("Usage for sender:\tnserial SerialPort Status FileName\n\tex: nserial /dev/ttyS1 0 pinguim.gif\n");
+  int packetSize = atoi(argv[4]);
+
+  //char* baudrateNo = argv[5];
+
+  //char baudrate[24] = "0x";
+
+  //strcat(baudrate, baudrateNo);
+
+  //printf("%s", baudrate);
+
+  char* baudrate = "";
+
+  if (index == 0 && argc < 6){
+    printf("Usage for sender:\tnserial SerialPort Status FileName packetSize BAUDRATE\n\tex: nserial /dev/ttyS1 0 pinguim.gif 1024 38400\n");
     exit(1);
   }
 
-
-  if (index == 0){
-    readFileData(argv[3]);  
-  }
-
-  if ((fd = llopen(argv[1], atoi(argv[2]))) == -1) {
+  if ((fd = llopen(argv[1], index, baudrate)) == -1) {
 		perror("LLOPEN");
 		return -1;
 	}
+
+  structSetUp(argv[3], packetSize, fd);
+
+  if (index == 0) {
+    readFileData(argv[3]);  
+  }
 
   printf("\n\n");
 
@@ -60,78 +66,12 @@ int main(int argc, char** argv)
       break;
   }
 
-  /*char message2[256] = "adeus";
-  char buffer2[256] = "";
-  char buffer3[256] = "";
-  if (index == 0){
-    if (llwrite(fd, message2, strlen(message2)) == -1) {
-		  perror("LLWRITE");
-		  return -1;
-	  }
-  }
-  else{
-    if (llread(fd, buffer2, buffer3) == -1) {
-		  perror("LLREAD");
-		  return -1;
-	  }
-    printf("%s\n", buffer3);
-  }*/
-
   printf("\n\n");
 
-  if (llclose(fd, atoi(argv[2])) == -1) {
+  if (llclose(fd, index) == -1) {
 		perror("LLCLOSE");
 		return -1;
 	}
 
-  /*
-  char message[256] = "ola";
-  char buffer[256] = "";
-  if (index == 0){
-    if (llwrite(fd, message, strlen(message)) == -1) {
-		  perror("LLWRITE");
-		  return -1;
-	  }
-  }
-  else{
-    if (llread(fd, buffer) == -1) {
-		  perror("LLREAD");
-		  return -1;
-	  }
-  }
-  
-  size_t len;
-  if(gets(buf)==NULL){
-      perror("gets");
-      exit(-1);
-  }
-  len = strlen(buf)+1;
-
-  int count = 0;
-  while(TRUE){
-    res = write(fd,buf,len); 
-
-    while (STOP==FALSE) {
-      res = read(fd,buf,1);
-      buf[res]='\0';
-
-      received[count]=buf[0];
-      count++;
-      if (buf[0]=='\0') STOP=TRUE;
-    }
-
-    if(res == 0){
-      sleep(1);
-    }
-    else{
-      break;
-    }
-  }
-
-  printf("Received: ");
-  printf("%s", received);
-  printf("\n");*/
-
-  close(fd);
   return 0;
 }
