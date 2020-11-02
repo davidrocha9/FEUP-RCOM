@@ -11,7 +11,6 @@
 #define MAX_TIMEOUTS 3
 
 struct dataTransfered {
-  char serialPort[64];
   unsigned int status;
   int ns;
   unsigned int timeouts;

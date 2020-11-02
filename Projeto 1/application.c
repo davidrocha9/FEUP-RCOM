@@ -1,5 +1,11 @@
 #include "application.h"
 
+int structSetUp(char* fileName, int packetSize, int fdPort) {
+    file_data.fileName = fileName;
+    file_data.packetSize = packetSize;
+    file_data.serialPort = fdPort;
+}
+
 int readFileData(char* file_name){
     struct stat buf;
     int fd = open(file_name, O_RDONLY);
@@ -43,7 +49,7 @@ int controlPacket(int fd, int type){
 
     int packetSize = strlen(file_data.fileName) + 9 * sizeof(unsigned char);
 
-    if (llwrite(fd, packet, packetSize) < 0){
+    if (llwrite(fd, packet, packetSize) < packetSize){
         perror("LLWRITE START CONTROL PACKET\n");
         exit(1);
     }
@@ -105,28 +111,28 @@ void createPacket(unsigned char* packet, unsigned char* buffer, int size, int pa
     packet[2] = size / 256;
     packet[3] = size % 256;
 
-    for (int x = 0; x < 1024; x++){
+    for (int x = 0; x < file_data.packetSize; x++){
         packet[4 + x] = buffer[x];
     }
 }
 
 int sendDataPacket(){
-    int packetsSent = 0, packetsUnsent = file_data.fileSize/1024;
-    unsigned char buffer[1024];
+    int packetsSent = 0, packetsUnsent = file_data.fileSize/file_data.packetSize;
+    unsigned char buffer[file_data.packetSize];
     int size = 0;
     int length = 0;
 
-    if(file_data.fileSize%1024 != 0){
+    if(file_data.fileSize%file_data.packetSize != 0){
         packetsUnsent++;
     }
 
     int index = 0;
     while(packetsSent < packetsUnsent){
-        if((size = read(file_data.file_fd,buffer,1024)) < 0){
+        if((size = read(file_data.file_fd,buffer,file_data.packetSize)) < 0){
             printf("Error reading file\n");
         }
         index++;
-        unsigned char packet[4+1024];
+        unsigned char packet[4+file_data.packetSize];
         createPacket(packet, buffer, size, packetsSent);
 
         printf("Iteracao %d\n", index);

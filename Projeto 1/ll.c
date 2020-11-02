@@ -77,7 +77,8 @@ int sendFrame(int fd, unsigned char* packet, int size){
     frame[1] = A_SET;
     if (data.ns == 0)
         frame[2] = BCC_NS0;
-    else frame[2] = BCC_NS1;
+    else
+        frame[2] = BCC_NS1;
     frame[3] = (A_SET ^ frame[2]);
 
     unsigned char bcc2 = 0x00;
@@ -90,7 +91,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
             frame[index + 4] = ESC;
-            frame[index + 5] = packet[x] ^ STUFFING;
+            frame[index + 4 + 1] = packet[x] ^ STUFFING;
             index++;
         }
         else frame[index + 4] = packet[x];
@@ -109,7 +110,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
     frame[4 + index] = FLAG;
     
 
-    int totalSize = index + 5;
+    int totalSize = index + 4 + 1;
 
     write(fd, frame, totalSize);
     printf("Size sent: %d\n", totalSize);
@@ -227,7 +228,10 @@ int readFrame(int fd, unsigned char* packet){
     State state = START; 
     unsigned char msg[131082];
     while (1){
-        read(fd, &byte, 1);
+        if (read(fd, &byte, 1) < 0){
+            perror("Error reading byte");
+            exit(1);
+        }
         stateMachine(&state, byte);
         packet[len] = byte;
         len++;
@@ -270,7 +274,7 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 
     printf("\n");
 
-    printf("Tamanho da frame: %d\n", i);
+    printf("Frame size: %d\n", i);
 
     return j;
 }
@@ -288,7 +292,7 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* messag
         printf("BCC_NS0 error\n");
         return 1;
     }
-    else if (destuffedFrame[3] != (A_SET ^ BCC_NS1) && destuffedFrame[3] != (A_SET ^ BCC_NS0)){
+    else if (destuffedFrame[3] != (A_SET ^ destuffedFrame[2])){
         printf("BCC1 error\n");
         return 1;
     }
@@ -377,7 +381,7 @@ int llread(int fd, unsigned char* packet, unsigned char* message){
     return destuffedlen;
 }
 
-int setStruct(const char* serialPort, int status){
+int setStruct(const char* serialPort, int status, const char* baudrate){
     int fd = open(serialPort, O_RDWR | O_NOCTTY);
     if (fd < 0) {
         perror(serialPort); 
@@ -389,8 +393,10 @@ int setStruct(const char* serialPort, int status){
       exit(-1);
     }
 
+    long baud = strtol(baudrate, NULL, 10);
+
     bzero(&data.newtio, sizeof(data.newtio));
-    data.newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    data.newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
     data.newtio.c_iflag = IGNPAR;
     data.newtio.c_oflag = 0;
 
@@ -408,7 +414,6 @@ int setStruct(const char* serialPort, int status){
 
     printf("New termios structure set\n");
 
-    strcpy(data.serialPort, serialPort);
     data.status = status;
     data.ns = 0;
     data.timeouts = MAX_TIMEOUTS;
@@ -418,8 +423,8 @@ int setStruct(const char* serialPort, int status){
     return fd;
 }
 
-int llopen(const char* serialPort, int status){
-    int fd = setStruct(serialPort, status);
+int llopen(const char* serialPort, int status, const char* baudrate){
+    int fd = setStruct(serialPort, status, baudrate);
     int res;
     unsigned char buf[255], received[255];
     
