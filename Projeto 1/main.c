@@ -6,7 +6,9 @@ volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-  int fd;
+  int c;
+  struct termios oldtio, newtio;
+  int fd, i, sum = 0, speed = 0;
   
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 
@@ -21,13 +23,13 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
   int packetSize = 1024;
-  char* baudrateNo = "38400";
+  char* baudrateNo = "B38400";
 
   if (argc > 4)
-    packetSize = atoi(argv[4]);
+    baudrateNo = argv[4];
 
   if (argc > 5)
-    baudrateNo = argv[5];
+    packetSize = atoi(argv[5]);
 
   if (index == 0 && argc < 4){
     printf("Usage for sender:\tnserial SerialPort Status FileName\n\tex: nserial /dev/ttyS1 0 pinguim.gif\n");
@@ -48,7 +50,7 @@ int main(int argc, char** argv)
 
   printf("\n\n");
 
-  /*switch(index){
+  switch(index){
     case 0:
       if(sendFile(fd) == -1) {
         perror("SENDING FILE");
@@ -61,11 +63,9 @@ int main(int argc, char** argv)
         return -1;
 		  }
       break;
-  }*/
+  }
 
   printf("\n\n");
-
-  setStruct(argv[1], index, baudrateNo);
 
   if (llclose(fd, index) == -1) {
 		perror("LLCLOSE");

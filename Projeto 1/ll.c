@@ -2,7 +2,6 @@
 
 int readSET(int fd) {
     unsigned char received[255];
-    
     read(fd, received, 5);
     printf("Received SET. Checking values...\n");
 
@@ -31,9 +30,8 @@ int readSET(int fd) {
 
 int readUA(int fd) {
     unsigned char received[255];
-    
     read(fd, received, 5);
-    printf("Received UA. Checking values...\n");
+    printf("Received SET. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
         printf("FLAG error\n");
@@ -52,7 +50,7 @@ int readUA(int fd) {
         return 1;
     }
     else{
-        printf("UA is valid\n");
+        printf("SET is valid\n");
     }
 
     return 0;
@@ -148,6 +146,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
+    memset(response,0,strlen(response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -180,7 +179,7 @@ int checkSucess(int fd, unsigned char* packet){
 }
 
 int llwrite(int fd, unsigned char* packet, int size){
-    int frameSize;
+    int frameSize, res;
 
     do{
         if (data.numTries >= 1){
@@ -250,10 +249,17 @@ void stateMachine(State *state, unsigned char byte){
 }
 
 int readFrame(int fd, unsigned char* packet){
-    int len = 0;
+    int len = 0, msgIndex = 0;
     unsigned char byte;
-    State state = START; 
-    while (1){
+    State state = START;
+
+    do {
+        if (data.numTries >= 1){
+            printf("Didn't receive...\n");
+        }
+        startAlarm();
+        data.alarmFlag = 1;
+
         if (read(fd, &byte, 1) < 0){
             perror("Error reading byte");
             exit(1);
@@ -264,7 +270,15 @@ int readFrame(int fd, unsigned char* packet){
         if (state == END){
             break;
         }
+    } while (data.numTries <= MAX_TRIES && data.alarmFlag);
+
+    stopAlarm();
+
+    if (data.numTries >= MAX_TRIES) {
+        printf("max number of tries achieved\n");
+        return -1;
     }
+    data.numTries = 0;
 
     return len;
 }
@@ -362,6 +376,9 @@ int buildResponse(unsigned char* response, char* flag){
 int llread(int fd, unsigned char* packet, unsigned char* message){
     unsigned char destuffedFrame[131082];
     unsigned char response[131082];
+    memset(message,0,strlen(message));
+    memset(response,0,strlen(response));
+    unsigned char* answer;
     int size = 0, destuffedlen = 0;
 
     while(1){
