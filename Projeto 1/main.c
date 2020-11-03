@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 
   printf("\n\n");
 
-  switch(index){
+  /*switch(index){
     case 0:
       if(sendFile(fd) == -1) {
         perror("SENDING FILE");
@@ -61,9 +61,11 @@ int main(int argc, char** argv)
         return -1;
 		  }
       break;
-  }
+  }*/
 
   printf("\n\n");
+
+  setStruct(argv[1], index, baudrateNo);
 
   if (llclose(fd, index) == -1) {
 		perror("LLCLOSE");

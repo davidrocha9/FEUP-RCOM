@@ -11,9 +11,11 @@
 
 typedef enum {START, FLAG_RCVD, A_RCVD, C_RCVD, BCC1_RCVD, BCC2_RCVD, DATA_RCVD, END} State;
 
-int readResponseSET(int fd); 
+int readSET(int fd);
 
-int readResponseDISC(int fd);
+int readUA(int fd); 
+
+int readDISC(int fd);
 
 int checkSucess(int fd, unsigned char* packet);
 

@@ -1,10 +1,39 @@
 #include "ll.h"
 
-int readResponseSET(int fd) {
+int readSET(int fd) {
     unsigned char received[255];
     
     read(fd, received, 5);
     printf("Received SET. Checking values...\n");
+
+    if (received[0] != FLAG || received[4] != FLAG){
+        printf("FLAG error\n");
+        return 1;
+    }
+    else if (received[1] != A_SET){
+        printf("A_SET error\n");
+        return 1;
+    }
+    else if (received[2] != C_SET){
+        printf("C_SET error\n");
+        return 1;
+    }
+    else if (received[3] != BCC1){
+        printf("BCC1 error\n");
+        return 1;
+    }
+    else{
+        printf("SET is valid\n");
+    }
+
+    return 0;
+}
+
+int readUA(int fd) {
+    unsigned char received[255];
+    
+    read(fd, received, 5);
+    printf("Received UA. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
         printf("FLAG error\n");
@@ -23,13 +52,13 @@ int readResponseSET(int fd) {
         return 1;
     }
     else{
-        printf("SET is valid\n");
+        printf("UA is valid\n");
     }
 
     return 0;
 }
 
-int readResponseDISC(int fd) {
+int readDISC(int fd) {
     unsigned char received[255];
     read(fd, received, 5);
     printf("Received DISC. Checking values...\n");
@@ -441,14 +470,14 @@ int llopen(const char* serialPort, int status, const char* baudrate){
                 data.alarmFlag = 1;
 
                 printf("Waiting for UA...\n");
-                int error = readResponseSET(fd);
+                int error = readUA(fd);
 
                 if (!error){
                     stopAlarm();
                     data.alarmFlag = 0;
                     break;
                 }
-            } while (data.numTries < MAX_TRIES && data.alarmFlag);
+            } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
             stopAlarm();
 
@@ -462,34 +491,36 @@ int llopen(const char* serialPort, int status, const char* baudrate){
 
         case RECEIVER: //1
             printf("Waiting for SET...\n");
-            read(fd, received, 5);
-            printf("Received SET. Checking values...\n");
 
-            if (received[0] != FLAG || received[4] != FLAG){
-                printf("FLAG error\n");
-                return 1;
+            do {
+                if (data.numTries >= 1){
+                    printf("Didn't receive...\n");
+                }
+                startAlarm();
+                data.alarmFlag = 1;
+
+                int error = readSET(fd);
+                if (!error){
+                    stopAlarm();
+                    data.alarmFlag = 0;
+                    break;
+                }
+            } while (data.numTries <= MAX_TRIES && data.alarmFlag);
+
+            stopAlarm();
+
+            if (data.numTries >= MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
             }
-            else if (received[1] != A_SET){
-                printf("A_SET error\n");
-                return 1;
-            }
-            else if (received[2] != C_SET){
-                printf("C_SET error\n");
-                return 1;
-            }
-            else if (received[3] != BCC1){
-                printf("BCC1 error\n");
-                return 1;
-            }
-            else{
-                printf("SET is valid\n");
-            }
+            data.numTries = 0;
 
             buf[0] = FLAG;
             buf[1] = A_UA;
             buf[2] = C_UA;
             buf[3] = BCC2;
             buf[4] = FLAG;
+            
             write(fd, buf, 5);  
             printf("UA Sent.\n");
 
@@ -520,7 +551,7 @@ int llclose(int fd, int status){
                 data.alarmFlag = 0;
                 //reading DISC frame
                 printf("Waiting for DISC...\n");
-                int error = readResponseDISC(fd);
+                int error = readDISC(fd);
 
                 if (!error){
                     stopAlarm();
@@ -536,43 +567,42 @@ int llclose(int fd, int status){
                 printf("max number of tries achieved\n");
                 return -1;
             }
-            else {
-                printf("Writing UA\n");
-                buf[0] = FLAG;
-                buf[1] = A_UA;
-                buf[2] = C_UA;
-                buf[3] = BCC2;
-                buf[4] = FLAG;
+            printf("Writing UA\n");
+            buf[0] = FLAG;
+            buf[1] = A_UA;
+            buf[2] = C_UA;
+            buf[3] = BCC2;
+            buf[4] = FLAG;
             write(fd, buf, 5); 
-                printf("UA Sent.\n"); 
-                sleep(1);
-            }
+            printf("UA Sent.\n"); 
+            sleep(1);
+
             break;
 
 
         case RECEIVER:
             printf("Waiting for DISC...\n");
-            read(fd, received, 5);
-            printf("Received DISC. Checking values...\n");
 
-            if (received[0] != FLAG || received[4] != FLAG){
-                printf("FLAG error\n");
-                return 1;
-            }
-            else if (received[1] != A_SET){
-                printf("A_SET error\n");
-                return 1;
-            }
-            else if (received[2] != C_DISC){
-                printf("C_DISC error\n");
-                return 1;
-            }
-            else if (received[3] != BCC_DISC){
-                printf("BCC_DISC error\n");
-                return 1;
-            }
-            else{
-                printf("DISC is valid\n");
+            do {
+                if (data.numTries >= 1){
+                    printf("Didn't receive...\n");
+                }
+                startAlarm();
+                data.alarmFlag = 1;
+
+                int error = readDISC(fd);
+                if (!error){
+                    stopAlarm();
+                    data.alarmFlag = 0;
+                    break;
+                }
+            } while (data.numTries <= MAX_TRIES && data.alarmFlag);
+
+            stopAlarm();
+
+            if (data.numTries >= MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
             }
 
             buf[0] = FLAG;
@@ -586,27 +616,26 @@ int llclose(int fd, int status){
             // UA Handling
             printf("Waiting for UA...\n");
 
-            read(fd, received, 5);
-            printf("Received UA. Checking values...\n");
+            do {
+                if (data.numTries >= 1){
+                    printf("Didn't receive...\n");
+                }
+                startAlarm();
+                data.alarmFlag = 1;
 
-            if (received[0] != FLAG || received[4] != FLAG){
-                printf("FLAG error\n");
-                return 1;
-            }
-            else if (received[1] != A_UA){
-                printf("A_UA error\n");
-                return 1;
-            }
-            else if (received[2] != C_UA){
-                printf("C_UA error\n");
-                return 1;
-            }
-            else if (received[3] != BCC2){
-                printf("BCC2 error\n");
-                return 1;
-            }
-            else {
-                printf("UA is valid\n");
+                int error = readUA(fd);
+                if (!error){
+                    stopAlarm();
+                    data.alarmFlag = 0;
+                    break;
+                }
+            } while (data.numTries <= MAX_TRIES && data.alarmFlag);
+
+            stopAlarm();
+
+            if (data.numTries >= MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
             }
             break;
         default:
