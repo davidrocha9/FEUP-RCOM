@@ -23,7 +23,7 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
 
 int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message);
 
-int buildResponse(unsigned char* response, unsigned char* flag);
+int buildResponse(unsigned char* response, char* flag);
 
 int llopen(const char* port, int role, const char* baudrate);
 

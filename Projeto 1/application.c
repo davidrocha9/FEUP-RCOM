@@ -1,6 +1,6 @@
 #include "application.h"
 
-int structSetUp(char* fileName, int packetSize, int fdPort) {
+void structSetUp(char* fileName, int packetSize, int fdPort) {
     file_data.fileName = fileName;
     file_data.packetSize = packetSize;
     file_data.serialPort = fdPort;
@@ -57,7 +57,7 @@ int controlPacket(int fd, int type){
     return packetSize;
 }
 
-void getName(char* newFileName, char* message, int size, int index){
+void getName(char* newFileName, unsigned char* message, int size, int index){
     for (int x = 0; x < size; x++){
         newFileName[x] = message[index];
         index++;
@@ -120,7 +120,6 @@ int sendDataPacket(){
     int packetsSent = 0, packetsUnsent = file_data.fileSize/file_data.packetSize;
     unsigned char buffer[file_data.packetSize];
     int size = 0;
-    int length = 0;
 
     if(file_data.fileSize%file_data.packetSize != 0){
         packetsUnsent++;
@@ -141,6 +140,7 @@ int sendDataPacket(){
             printf("Error writing data packet to serial port!\n");
             return -1;
         }
+        printf("\n");
         packetsSent++;
     }
 

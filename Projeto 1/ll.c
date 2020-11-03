@@ -2,7 +2,8 @@
 
 int readResponseSET(int fd) {
     unsigned char received[255];
-    int res = read(fd, received, 5);
+    
+    read(fd, received, 5);
     printf("Received SET. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
@@ -30,7 +31,7 @@ int readResponseSET(int fd) {
 
 int readResponseDISC(int fd) {
     unsigned char received[255];
-    int res = read(fd, received, 5);
+    read(fd, received, 5);
     printf("Received DISC. Checking values...\n");
 
     if (received[0] != FLAG || received[4] != FLAG){
@@ -86,8 +87,6 @@ int sendFrame(int fd, unsigned char* packet, int size){
 	for (int i = 0; i < size; i++)
 		bcc2 ^= packet[i];
 
-    printf("%d\n", bcc2);
-
     for (int x = 0; x < size; x++){
         if (packet[x] == FLAG || packet[x] == ESC){
             frame[index + 4] = ESC;
@@ -120,7 +119,6 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
-    memset(response,0,strlen(response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -137,13 +135,13 @@ int checkSucess(int fd, unsigned char* packet){
     }
     
     switch(response[2]){
-        case 1:
+        case REJ1:
             return 1;
-        case 2:
+        case REJ0:
             return 1;
-        case 3:
+        case RR0:
             return 0;
-        case 4:
+        case RR1:
             return 0;
         default:
             return 1;
@@ -153,7 +151,7 @@ int checkSucess(int fd, unsigned char* packet){
 }
 
 int llwrite(int fd, unsigned char* packet, int size){
-    int frameSize, res;
+    int frameSize;
 
     do{
         if (data.numTries >= 1){
@@ -223,10 +221,9 @@ void stateMachine(State *state, unsigned char byte){
 }
 
 int readFrame(int fd, unsigned char* packet){
-    int len = 0, msgIndex = 0;
-    unsigned char byte, bcc2 = 0x00;
+    int len = 0;
+    unsigned char byte;
     State state = START; 
-    unsigned char msg[131082];
     while (1){
         if (read(fd, &byte, 1) < 0){
             perror("Error reading byte");
@@ -310,7 +307,7 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* messag
     return 0;
 }
 
-int buildResponse(unsigned char* response, unsigned char* flag){
+int buildResponse(unsigned char* response, char* flag){
     response[0] = FLAG;
     response[1] = A_SET;
     response[3] = BCC1;
@@ -318,16 +315,16 @@ int buildResponse(unsigned char* response, unsigned char* flag){
     
 
     if (!strcmp("REJ1", flag)){
-        response[2] = 1;
+        response[2] = REJ1;
     }
     else if (!strcmp("REJ0", flag)){
-        response[2] = 2;
+        response[2] = REJ0;
     }
     else if (!strcmp("RR1", flag)){
-        response[2] = 3;
+        response[2] = RR1;
     }
     else if (!strcmp("RR0", flag)){
-        response[2] = 4;
+        response[2] = RR0;
     }
 
     return 0;
@@ -336,9 +333,6 @@ int buildResponse(unsigned char* response, unsigned char* flag){
 int llread(int fd, unsigned char* packet, unsigned char* message){
     unsigned char destuffedFrame[131082];
     unsigned char response[131082];
-    memset(message,0,strlen(message));
-    memset(response,0,strlen(response));
-    unsigned char* answer;
     int size = 0, destuffedlen = 0;
 
     while(1){
@@ -393,7 +387,7 @@ int setStruct(const char* serialPort, int status, const char* baudrate){
       exit(-1);
     }
 
-    long baud = strtol(baudrate, NULL, 10);
+    long baud = strtol(baudrate, NULL, 16);
 
     bzero(&data.newtio, sizeof(data.newtio));
     data.newtio.c_cflag = baud | CS8 | CLOCAL | CREAD;
@@ -425,11 +419,10 @@ int setStruct(const char* serialPort, int status, const char* baudrate){
 
 int llopen(const char* serialPort, int status, const char* baudrate){
     int fd = setStruct(serialPort, status, baudrate);
-    int res;
     unsigned char buf[255], received[255];
     
     switch(status){
-        case TRANSMITTER: //TRANSMITTER
+        case TRANSMITTER: //0
 
             buf[0] = FLAG;
             buf[1] = A_SET;
@@ -442,7 +435,7 @@ int llopen(const char* serialPort, int status, const char* baudrate){
                     printf("Retrying...\n");
                 }
                 printf("Writing SET\n");
-                res = write(fd, buf, 5);
+                write(fd, buf, 5);
                 printf("SET sent.\n");
                 startAlarm();
                 data.alarmFlag = 1;
@@ -467,9 +460,9 @@ int llopen(const char* serialPort, int status, const char* baudrate){
             break;
 
 
-        case RECEIVER: //RECEIVER
+        case RECEIVER: //1
             printf("Waiting for SET...\n");
-            res = read(fd, received, 5);
+            read(fd, received, 5);
             printf("Received SET. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){
@@ -497,7 +490,7 @@ int llopen(const char* serialPort, int status, const char* baudrate){
             buf[2] = C_UA;
             buf[3] = BCC2;
             buf[4] = FLAG;
-            res = write(fd, buf, 5);  
+            write(fd, buf, 5);  
             printf("UA Sent.\n");
 
             break;
@@ -511,7 +504,6 @@ int llopen(const char* serialPort, int status, const char* baudrate){
 
 int llclose(int fd, int status){
     unsigned char buf[255], received[255];
-    int res;
 
     switch(status){
         case TRANSMITTER:
@@ -522,7 +514,7 @@ int llclose(int fd, int status){
             buf[4] = FLAG;  
 
             do {
-                res = write(fd, buf, 5);
+                write(fd, buf, 5);
                 printf("DISC sent.\n");
                 startAlarm();
                 data.alarmFlag = 0;
@@ -551,7 +543,7 @@ int llclose(int fd, int status){
                 buf[2] = C_UA;
                 buf[3] = BCC2;
                 buf[4] = FLAG;
-                res = write(fd, buf, 5); 
+            write(fd, buf, 5); 
                 printf("UA Sent.\n"); 
                 sleep(1);
             }
@@ -560,7 +552,7 @@ int llclose(int fd, int status){
 
         case RECEIVER:
             printf("Waiting for DISC...\n");
-            res = read(fd, received, 5);
+            read(fd, received, 5);
             printf("Received DISC. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){
@@ -588,13 +580,13 @@ int llclose(int fd, int status){
             buf[2] = C_DISC;
             buf[3] = BCC_DISC;
             buf[4] = FLAG;  
-            res = write(fd, buf, 5);
+            write(fd, buf, 5);
             printf("DISC sent.\n");  
             
             // UA Handling
             printf("Waiting for UA...\n");
 
-            res = read(fd, received, 5);
+            read(fd, received, 5);
             printf("Received UA. Checking values...\n");
 
             if (received[0] != FLAG || received[4] != FLAG){

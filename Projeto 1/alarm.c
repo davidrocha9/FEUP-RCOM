@@ -19,7 +19,7 @@ void startAlarm() {
         fprintf(stderr,"Unable to install SIGALRM handler\n");
         exit(1);
     }
-    alarm(3);
+    alarm(10);
 }
 
 void stopAlarm() {

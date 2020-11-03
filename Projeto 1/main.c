@@ -6,9 +6,7 @@ volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-  int c;
-  struct termios oldtio, newtio;
-  int fd, i, sum = 0, speed = 0;
+  int fd;
   
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 
@@ -23,12 +21,12 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
   int packetSize = 1024;
-  char* baudrateNo = "";
-
-  if (argc > 3)
-    packetSize = atoi(argv[4]);
+  char* baudrateNo = "38400";
 
   if (argc > 4)
+    packetSize = atoi(argv[4]);
+
+  if (argc > 5)
     baudrateNo = argv[5];
 
   if (index == 0 && argc < 4){

@@ -12,13 +12,13 @@ struct fileData {
     int packetSize;
 } file_data;
 
-int structSetUp(char* fileName, int packetSize, int fdPort);
+void structSetUp(char* fileName, int packetSize, int fdPort);
 
 int readFileData(char* file_name);
 
 int controlPacket(int fd, int type);
 
-void getName(char* newFileName, char* message, int size, int index);
+void getName(char* newFileName, unsigned char* message, int size, int index);
 
 int readControlPacket(unsigned char* controlPacket);
 
