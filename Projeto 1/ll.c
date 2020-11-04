@@ -168,7 +168,6 @@ int sendFrame(int fd, unsigned char* packet, int size){
             index++;
         }
         else frame[index + 4] = packet[x];
-
         index++;
     }
 
@@ -193,7 +192,11 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
+<<<<<<< HEAD
     memset(response, 0, strlen(response));
+=======
+    memset(response, 0, strlen( (const char*) response));
+>>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -295,7 +298,11 @@ void stateMachine(State *state, unsigned char byte){
     }
 }
 
+<<<<<<< HEAD
 int readFrame(int fd, unsigned char* packet){
+=======
+int readFrame(int fd, unsigned char* packet) {
+>>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
     int len = 0;
     unsigned char byte;
     State state = START;
@@ -424,8 +431,12 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
     unsigned char destuffedFrame[MAX_BUFFER_SIZE];
     unsigned char response[MAX_BUFFER_SIZE];
     memset(dataPackets, 0, strlen( (const char*) dataPackets));
+<<<<<<< HEAD
     memset(response,0,strlen( (const char*) response));
     unsigned char* answer;
+=======
+    memset(response, 0, strlen( (const char*) response));
+>>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
     int size = 0, destuffedlen = 0;
 
     while(1){
@@ -436,14 +447,22 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
 
             if (verifyPacket(destuffedFrame, destuffedlen, dataPackets)){
                 if (destuffedFrame[2] == C_NS0){
+<<<<<<< HEAD
                     buildResponse(response, "REJ1");
                     write(fd, response, 5);
                     printf("REJ sent: 1\n");
                 }
                 else if (destuffedFrame[2] == C_NS1){
+=======
+>>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
                     buildResponse(response, "REJ0");
                     write(fd, response, 5);
                     printf("REJ sent: 0\n");
+                }
+                else if (destuffedFrame[2] == C_NS1){
+                    buildResponse(response, "REJ1");
+                    write(fd, response, 5);
+                    printf("REJ sent: 1\n");
                 }
 
                 return 0; 
@@ -515,7 +534,7 @@ int setStruct(const char* serialPort, int status, char* baudrate){
 
 int llopen(const char* serialPort, int status, char* baudrate){
     int fd = setStruct(serialPort, status, baudrate);
-    unsigned char buf[255], received[255];
+    unsigned char buf[255];
     
     switch(status){
         case TRANSMITTER: //0
@@ -576,7 +595,7 @@ int llopen(const char* serialPort, int status, char* baudrate){
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
@@ -685,6 +704,13 @@ int llclose(int fd, int status){
 
             if (readUA(fd)) return 1;
 
+<<<<<<< HEAD
+=======
+            if (data.numTries > MAX_TRIES) {
+                printf("max number of tries achieved\n");
+                return -1;
+            }
+>>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
             break;
         default:
             printf("Status error!\n");
