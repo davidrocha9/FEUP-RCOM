@@ -1,7 +1,7 @@
 #include "alarm.h"
 
 void alarm_handler(int signal) {
-    
+
     if(signal != SIGALRM)
         return;
     data.numTries++;

@@ -21,8 +21,4 @@
 #define REJ0 0x81
 #define REJ1 0x01
 
-<<<<<<< HEAD
 #define MAX_BUFFER_SIZE 131082
-=======
-#define MAX_BUFFER_SIZE 131082
->>>>>>> a05d0580356a02baaa7373f3ec4bb1781e84bc4d
