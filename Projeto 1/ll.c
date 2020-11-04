@@ -39,8 +39,6 @@ speed_t checkBaudrate(long br){
             return B57600;
         case 0xB115200:
             return B115200;
-        case 0xB230400:
-            return B230400;
         default:
             printf("Bad baudrate value. Using default (B38400)");
             return B38400;
@@ -138,7 +136,7 @@ int stopConnection(int fd) {
         exit(-1);
     }
     close(fd);
-    printf("\nENDING DATA TRANSFER\n");
+    printf("\nENDING DATA TRANSFER\n\n\n");
     return 0;
 }
 
@@ -193,7 +191,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
-    memset(response, 0, strlen(response));
+    memset(response, 0, strlen( (const char *) response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -425,7 +423,6 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
     unsigned char response[MAX_BUFFER_SIZE];
     memset(dataPackets, 0, strlen( (const char*) dataPackets));
     memset(response,0,strlen( (const char*) response));
-    unsigned char* answer;
     int size = 0, destuffedlen = 0;
 
     while(1){
@@ -481,6 +478,7 @@ int setStruct(const char* serialPort, int status, char* baudrate){
     }
 
     long br = strtol(baudrate,NULL,16);
+
     speed_t converted = checkBaudrate(br);
 
     bzero(&data.newtio, sizeof(data.newtio));
@@ -515,7 +513,7 @@ int setStruct(const char* serialPort, int status, char* baudrate){
 
 int llopen(const char* serialPort, int status, char* baudrate){
     int fd = setStruct(serialPort, status, baudrate);
-    unsigned char buf[255], received[255];
+    unsigned char buf[255];
     
     switch(status){
         case TRANSMITTER: //0
@@ -694,3 +692,4 @@ int llclose(int fd, int status){
     stopConnection(fd);
     return fd;
 }
+
