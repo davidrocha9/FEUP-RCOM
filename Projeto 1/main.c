@@ -1,14 +1,14 @@
 /*Non-Canonical Input Processing*/
 
 #include "application.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-  int c;
-  struct termios oldtio, newtio;
-  int fd, i, sum = 0, speed = 0;
+  int fd;
   
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 
@@ -25,8 +25,9 @@ int main(int argc, char** argv)
   int packetSize = 1024;
   char* baudrateNo = "B38400";
 
-  if (argc > 4)
+  if (argc > 4){
     baudrateNo = argv[4];
+  }
 
   if (argc > 5)
     packetSize = atoi(argv[5]);

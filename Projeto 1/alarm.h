@@ -11,7 +11,7 @@
 #define MAX_TIMEOUTS 3
 
 struct dataTransfered {
-  unsigned int status;
+  unsigned int status; // 0 - Sender || 1 - Receiver
   int ns;
   unsigned int timeouts;
   unsigned int numTries;

@@ -90,12 +90,12 @@ int readControlPacket(unsigned char* controlPacket){
             case 0x01:
                 index++;
                 newFilesize = message[index];
-                char* newFileName = (char*) malloc(newFilesize+1);
+                char* newFileName = (char*) malloc(newFilesize + 1);
                 index++;
 
                 getName(newFileName, message, newFilesize, index);
 
-                file_data.fdNewFile = open("marega2",O_WRONLY | O_CREAT | O_APPEND, 0664);
+                file_data.fdNewFile = open(newFileName, O_WRONLY | O_CREAT | O_APPEND, 0664);
                 break;
             default:
                 break;
@@ -122,17 +122,17 @@ int sendDataPacket(){
     int size = 0;
     int length = 0;
 
-    if(file_data.fileSize%file_data.packetSize != 0){
+    if(file_data.fileSize % file_data.packetSize != 0){
         packetsUnsent++;
     }
 
     int index = 0;
     while(packetsSent < packetsUnsent){
-        if((size = read(file_data.file_fd,buffer,file_data.packetSize)) < 0){
+        if((size = read(file_data.file_fd,buffer, file_data.packetSize)) < 0){
             printf("Error reading file\n");
         }
         index++;
-        unsigned char packet[4+file_data.packetSize];
+        unsigned char packet[4 + file_data.packetSize];
         createPacket(packet, buffer, size, packetsSent);
 
         printf("Iteracao %d\n", index);
@@ -171,9 +171,9 @@ int sendFile(int fd){
 
 int writeDataToFile(unsigned char* packet){
     
-    int informationSize = 256*packet[2]+packet[3];
+    int informationSize = 256*packet[2] + packet[3];
  
-    write(file_data.fdNewFile,packet+4,informationSize);
+    write(file_data.fdNewFile,packet + 4,informationSize);
 
     return 0;
 }
@@ -181,7 +181,7 @@ int writeDataToFile(unsigned char* packet){
 int readPacket(int fd){
     unsigned char buffer[131082], buffer2[131082];
 
-    if(llread(fd,buffer2, buffer) > 0){
+    if(llread(fd, buffer2, buffer) > 0){
         switch(buffer[0]){
             case 0x01:
                 writeDataToFile(buffer);
