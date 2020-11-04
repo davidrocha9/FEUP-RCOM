@@ -21,6 +21,8 @@ int checkSucess(int fd, unsigned char* packet);
 
 void stateMachine(State *state, unsigned char byte);
 
+int readFrame(int fd, unsigned char* packet);
+
 int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned char* message);
 
 int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message);

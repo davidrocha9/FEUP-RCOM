@@ -6,9 +6,7 @@ volatile int STOP=FALSE;
 
 int main(int argc, char** argv)
 {
-  int c;
-  struct termios oldtio, newtio;
-  int fd, i, sum = 0, speed = 0;
+  int fd;
   
   if ( (argc < 3) || 
         ((strcmp("/dev/ttyS10", argv[1])!=0) && 

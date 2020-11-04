@@ -104,9 +104,9 @@ int sendFrame(int fd, unsigned char* packet, int size){
     frame[0] = FLAG;
     frame[1] = A_SET;
     if (data.ns == 0)
-        frame[2] = BCC_NS0;
+        frame[2] = C_NS0;
     else
-        frame[2] = BCC_NS1;
+        frame[2] = C_NS1;
     frame[3] = (A_SET ^ frame[2]);
 
     unsigned char bcc2 = 0x00;
@@ -121,14 +121,13 @@ int sendFrame(int fd, unsigned char* packet, int size){
             index++;
         }
         else frame[index + 4] = packet[x];
-
         index++;
     }
 
     // Control back bytes
     if (bcc2 == FLAG || bcc2 == ESC){
-        frame[4+index] = ESC;
-        frame[4+index+1] = bcc2 ^ STUFFING;
+        frame[4 + index] = ESC;
+        frame[4 + index + 1] = bcc2 ^ STUFFING;
         index++;
     }
     else frame[4 + index] = bcc2;
@@ -146,7 +145,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
-    memset(response,0,strlen(response));
+    memset(response, 0, strlen( (const char*) response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -179,7 +178,7 @@ int checkSucess(int fd, unsigned char* packet){
 }
 
 int llwrite(int fd, unsigned char* packet, int size){
-    int frameSize, res;
+    int frameSize;
 
     do{
         if (data.numTries >= 1){
@@ -198,11 +197,11 @@ int llwrite(int fd, unsigned char* packet, int size){
             data.alarmFlag = 0;
             break;
         }
-    } while (data.numTries < MAX_TRIES && data.alarmFlag);
+    } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
     stopAlarm();
 
-    if (data.numTries >= MAX_TRIES) {
+    if (data.numTries > MAX_TRIES) {
         printf("max number of tries achieved\n");
         return -1;
     }
@@ -222,13 +221,13 @@ void stateMachine(State *state, unsigned char byte){
             break;
         
         case A_RCVD:
-            if (byte == BCC_NS0 || byte == BCC_NS1){
+            if (byte == C_NS0 || byte == C_NS1){
                 *state = C_RCVD;
             }
             break;
 
         case C_RCVD:
-            if (byte == (A_SET ^ BCC_NS1) || byte == (A_SET ^ BCC_NS0)){
+            if (byte == (A_SET ^ C_NS1) || byte == (A_SET ^ C_NS0)){
                 *state = BCC1_RCVD;
             }
             break;
@@ -248,8 +247,8 @@ void stateMachine(State *state, unsigned char byte){
     }
 }
 
-int readFrame(int fd, unsigned char* packet){
-    int len = 0, msgIndex = 0;
+int readFrame(int fd, unsigned char* packet) {
+    int len = 0;
     unsigned char byte;
     State state = START;
 
@@ -274,7 +273,7 @@ int readFrame(int fd, unsigned char* packet){
 
     stopAlarm();
 
-    if (data.numTries >= MAX_TRIES) {
+    if (data.numTries > MAX_TRIES) {
         printf("max number of tries achieved\n");
         return -1;
     }
@@ -283,7 +282,7 @@ int readFrame(int fd, unsigned char* packet){
     return len;
 }
 
-int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned char* message){
+int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned char* dataPackets){
     for (int x = 0; x < 4; x++){
         destuffed[x] = packet[x];
     }
@@ -291,12 +290,12 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
     int j = 4;
 	int i;
 	for (i = 4; i < size - 1; i++) {
-		if (packet[i] == ESC && packet[i+1] == (FLAG ^ STUFFING)){
+		if (packet[i] == ESC && packet[i + 1] == (FLAG ^ STUFFING)){
             destuffed[j] = FLAG;
             i++;
             j++;
         }
-        else if (packet[i] == ESC && packet[i+1] == (ESC ^ STUFFING)){
+        else if (packet[i] == ESC && packet[i + 1] == (ESC ^ STUFFING)){
             destuffed[j] = ESC;
             i++;
             j++;
@@ -309,7 +308,7 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
     destuffed[j++] = packet[i++];
 
     for (int x = 4; x < size - 2; x++){
-        message[x-4] = destuffed[x];
+        dataPackets[x-4] = destuffed[x];
     }
 
     printf("\n");
@@ -319,7 +318,7 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
     return j;
 }
 
-int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* message){
+int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* dataPackets){
     if (destuffedFrame[0] != FLAG || destuffedFrame[size - 1] != FLAG){
         printf("FLAG error\n");
         return 1;
@@ -328,8 +327,8 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* messag
         printf("A_SET error\n");
         return 1;
     }
-    else if (destuffedFrame[2] != BCC_NS0 && destuffedFrame[2] != BCC_NS1){
-        printf("BCC_NS0 error\n");
+    else if (destuffedFrame[2] != C_NS0 && destuffedFrame[2] != C_NS1){
+        printf("C_NS0 error\n");
         return 1;
     }
     else if (destuffedFrame[3] != (A_SET ^ destuffedFrame[2])){
@@ -340,7 +339,7 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* messag
     unsigned char bcc2 = 0x00;
 
 	for (int i = 0; i < size - 6; i++)
-		bcc2 ^= message[i];
+		bcc2 ^= dataPackets[i];
 
     if (bcc2 != destuffedFrame[size - 2]){
         printf("BCC2 error\n");
@@ -373,41 +372,40 @@ int buildResponse(unsigned char* response, char* flag){
     return 0;
 }
 
-int llread(int fd, unsigned char* packet, unsigned char* message){
-    unsigned char destuffedFrame[131082];
-    unsigned char response[131082];
-    memset(message,0,strlen(message));
-    memset(response,0,strlen(response));
-    unsigned char* answer;
+int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
+    unsigned char destuffedFrame[MAX_BUFFER_SIZE];
+    unsigned char response[MAX_BUFFER_SIZE];
+    memset(dataPackets, 0, strlen( (const char*) dataPackets));
+    memset(response, 0, strlen( (const char*) response));
     int size = 0, destuffedlen = 0;
 
     while(1){
         if ((size = readFrame(fd, packet)) > 0){
-            destuffedlen = destuff(packet, destuffedFrame, size, message);
+            destuffedlen = destuff(packet, destuffedFrame, size, dataPackets);
 
             printf("Data size: %d\n", size);
 
-            if (verifyPacket(destuffedFrame, destuffedlen, message)){
-                if (destuffedFrame[2] == BCC_NS0){
-                    buildResponse(response, "REJ1");
-                    write(fd, response, 5);
-                    printf("REJ sent: 1\n");
-                }
-                else if (destuffedFrame[2] == BCC_NS1){
+            if (verifyPacket(destuffedFrame, destuffedlen, dataPackets)){
+                if (destuffedFrame[2] == C_NS0){
                     buildResponse(response, "REJ0");
                     write(fd, response, 5);
                     printf("REJ sent: 0\n");
+                }
+                else if (destuffedFrame[2] == C_NS1){
+                    buildResponse(response, "REJ1");
+                    write(fd, response, 5);
+                    printf("REJ sent: 1\n");
                 }
 
                 return 0; 
             }
             else{
-                if (destuffedFrame[2] == BCC_NS0){
+                if (destuffedFrame[2] == C_NS0){
                     buildResponse(response, "RR1");
                     write(fd, response, 5);
                     printf("RR sent: 1\n");
                 }
-                else if (destuffedFrame[2] == BCC_NS1){
+                else if (destuffedFrame[2] == C_NS1){
                     buildResponse(response, "RR0");
                     write(fd, response, 5);
                     printf("RR sent: 0\n");
@@ -452,7 +450,7 @@ int setStruct(const char* serialPort, int status, const char* baudrate){
       exit(-1);
     }
 
-    printf("New termios structure set\n");
+    printf("New termios structure set\n\n");
 
     data.status = status;
     data.ns = 0;
@@ -465,7 +463,7 @@ int setStruct(const char* serialPort, int status, const char* baudrate){
 
 int llopen(const char* serialPort, int status, const char* baudrate){
     int fd = setStruct(serialPort, status, baudrate);
-    unsigned char buf[255], received[255];
+    unsigned char buf[255];
     
     switch(status){
         case TRANSMITTER: //0
@@ -498,7 +496,7 @@ int llopen(const char* serialPort, int status, const char* baudrate){
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
@@ -526,7 +524,7 @@ int llopen(const char* serialPort, int status, const char* baudrate){
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
@@ -551,7 +549,7 @@ int llopen(const char* serialPort, int status, const char* baudrate){
 }
 
 int llclose(int fd, int status){
-    unsigned char buf[255], received[255];
+    unsigned char buf[255];
 
     switch(status){
         case TRANSMITTER:
@@ -576,11 +574,11 @@ int llclose(int fd, int status){
                     break;
                 }
                 
-            } while (data.numTries < MAX_TRIES && data.alarmFlag);
+            } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
@@ -617,7 +615,7 @@ int llclose(int fd, int status){
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
@@ -650,7 +648,7 @@ int llclose(int fd, int status){
 
             stopAlarm();
 
-            if (data.numTries >= MAX_TRIES) {
+            if (data.numTries > MAX_TRIES) {
                 printf("max number of tries achieved\n");
                 return -1;
             }
