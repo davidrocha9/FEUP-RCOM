@@ -157,6 +157,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
     frame[3] = (A_SET ^ frame[2]);
 
     unsigned char bcc2 = 0x00;
+
 	for (int i = 0; i < size; i++)
 		bcc2 ^= packet[i];
 
@@ -192,7 +193,7 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
 int checkSucess(int fd, unsigned char* packet){
     unsigned char response[256];
-    memset(response, 0, strlen(response));
+    memset(response, 0, strlen( (const char*) response));
     read(fd, response, 5);
 
     if (response[0] != FLAG || response[4] != FLAG){
@@ -226,7 +227,7 @@ int checkSucess(int fd, unsigned char* packet){
 
 int llwrite(int fd, unsigned char* packet, int size){
     int frameSize;
-	
+
     do{
         if (data.numTries >= 1){
             printf("Retrying...\n");
@@ -244,8 +245,10 @@ int llwrite(int fd, unsigned char* packet, int size){
             data.alarmFlag = 0;
             break;
         }
-	data.numTries++;
-	alarm(0);
+	    else if (!val && !data.alarmFlag){
+            data.numTries++;
+            alarm(0);	
+	    }
     } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
     stopAlarm();
@@ -267,22 +270,30 @@ void stateMachine(State *state, unsigned char byte){
   
         case FLAG_RCVD:
             if (byte == A_SET) *state = A_RCVD;
+            else if (byte == FLAG) *state = FLAG_RCVD;
+            else *state = START;
             break;
         
         case A_RCVD:
             if (byte == C_NS0 || byte == C_NS1){
                 *state = C_RCVD;
             }
+            else if (byte == FLAG) *state = FLAG_RCVD;
+            else *state = START;
             break;
 
         case C_RCVD:
             if (byte == (A_SET ^ C_NS1) || byte == (A_SET ^ C_NS0)){
                 *state = BCC1_RCVD;
             }
+            else if (byte == FLAG) *state = FLAG_RCVD;
+            else *state = START;
             break;
 
         case BCC1_RCVD:
             if (byte != FLAG) *state = DATA_RCVD;
+            else if (byte == FLAG) *state = FLAG_RCVD;
+            else *state = START;
             break;
         
         case DATA_RCVD:
@@ -301,7 +312,16 @@ int readFrame(int fd, unsigned char* packet){
     unsigned char byte;
     State state = START;
 
-    do {
+    while(state != END){
+      if(read(fd,&byte,1) < 0){
+          perror("Error reading byte");
+      }
+      stateMachine(&state,byte);
+      packet[len] = byte;
+      len++;
+    }
+
+    /*do {
         if (data.numTries >= 1){
             printf("Didn't receive...\n");
         }
@@ -326,7 +346,7 @@ int readFrame(int fd, unsigned char* packet){
         printf("max number of tries achieved\n");
         return -1;
     }
-    data.numTries = 0;
+    data.numTries = 0;*/
 
     return len;
 }
@@ -388,7 +408,8 @@ int verifyPacket (unsigned char* destuffedFrame, int size, unsigned char* dataPa
     unsigned char bcc2 = 0x00;
 
 	for (int i = 0; i < size - 6; i++)
-		bcc2 ^= dataPackets[i];	
+		bcc2 ^= dataPackets[i];
+
     if (bcc2 != destuffedFrame[size - 2]){
         printf("BCC2 error\n");
         return 1;
@@ -425,7 +446,6 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
     unsigned char response[MAX_BUFFER_SIZE];
     memset(dataPackets, 0, strlen( (const char*) dataPackets));
     memset(response,0,strlen( (const char*) response));
-    unsigned char* answer;
     int size = 0, destuffedlen = 0;
 
     while(1){
@@ -515,7 +535,7 @@ int setStruct(const char* serialPort, int status, char* baudrate){
 
 int llopen(const char* serialPort, int status, char* baudrate){
     int fd = setStruct(serialPort, status, baudrate);
-    unsigned char buf[255], received[255];
+    unsigned char buf[255];
     
     switch(status){
         case TRANSMITTER: //0
@@ -544,8 +564,6 @@ int llopen(const char* serialPort, int status, char* baudrate){
                     data.alarmFlag = 0;
                     break;
                 }
-		data.numTries++;
-		alarm(0);
             } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
             stopAlarm();
@@ -627,8 +645,7 @@ int llclose(int fd, int status){
                     data.alarmFlag = 0;
                     break;
                 }
-		data.numTries++;
-		alarm(0);
+                
             } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
             stopAlarm();

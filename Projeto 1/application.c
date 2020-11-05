@@ -95,7 +95,7 @@ int readControlPacket(unsigned char* controlPacket){
 
                 getName(newFileName, message, newFilesize, index);
 
-                file_data.fdNewFile = open(newFileName, O_WRONLY | O_CREAT | O_APPEND, 0664);
+                file_data.fdNewFile = open("marega2", O_WRONLY | O_CREAT | O_APPEND, 0664);
                 break;
             default:
                 break;
@@ -120,7 +120,6 @@ int sendDataPacket(){
     int packetsSent = 0, packetsUnsent = file_data.fileSize/file_data.packetSize;
     unsigned char buffer[file_data.packetSize];
     int size = 0;
-    int length = 0;
 
     if(file_data.fileSize % file_data.packetSize != 0){
         packetsUnsent++;

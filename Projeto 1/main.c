@@ -3,6 +3,7 @@
 #include "application.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/time.h>
 
 volatile int STOP=FALSE;
@@ -16,9 +17,9 @@ int main(int argc, char** argv)
   gettimeofday(&start, NULL);
 
   if ( (argc < 3) || 
-        ((strcmp("/dev/ttyS10", argv[1])!=0) && 
-        (strcmp("/dev/ttyS11", argv[1])!=0) )) {
-    printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS1 0 (Sender) 1 (Receiver)\n");
+        ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+    printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS0 0 \n");
     exit(1);
   }
 
@@ -28,10 +29,13 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
   int packetSize = 1024;
-  char* baudrateNo = "B38400";
+  char* baudrateNo = "38400";
 
-  if (argc > 4){
+  if (index == 0 && argc > 4){
     baudrateNo = argv[4];
+  }
+  if (index == 1 && argc > 3) {
+    baudrateNo = argv[3];
   }
 
   if (argc > 5)
@@ -77,16 +81,17 @@ int main(int argc, char** argv)
 		perror("LLCLOSE");
 		return -1;
 	}
-  if(index == 0){	
-	  gettimeofday(&end, NULL);
-		  
-	  double time_taken = end.tv_sec + end.tv_usec / 1e6 - start.tv_sec - start.tv_usec / 1e6; 
-
-	  printf("Program took %f seconds to transfer file\n", time_taken);
-	  printf("Packets per iteration: %d\n", packetSize);
-	  printf("Baudrate: %s\n", baudrateNo);
-  }
 
   close(fd);
+
+  gettimeofday(&end, NULL);
+  
+  double time_taken = end.tv_sec + end.tv_usec / 1e6 - start.tv_sec - start.tv_usec / 1e6; 
+
+  printf("Program took %f seconds to transfer file\n", time_taken);
+  printf("Packets per iteration: %d\n", packetSize);
+  printf("Baudrate: %s\n", baudrateNo);
+
+
   return 0;
 }
