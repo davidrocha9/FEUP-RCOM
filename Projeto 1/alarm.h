@@ -16,7 +16,6 @@ struct dataTransfered {
   unsigned int timeouts;
   unsigned int numTries;
   unsigned int alarmFlag;
-  struct termios oldtio, newtio;
 } data;
 
 
