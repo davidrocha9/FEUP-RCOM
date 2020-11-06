@@ -134,8 +134,6 @@ int sendDataPacket(){
         unsigned char packet[4 + file_data.packetSize];
         createPacket(packet, buffer, size, packetsSent);
 
-        printf("Iteracao %d\n", index);
-
         if(llwrite(file_data.serialPort,packet,size + 4) < (size + 4)){
             printf("Error writing data packet to serial port!\n");
             return -1;

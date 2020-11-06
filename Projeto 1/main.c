@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 */
   int index = atoi(argv[2]);
   int packetSize = 1024;
-  char* baudrateNo = "38400";
+  char* baudrateNo = "B38400";
 
   if (index == 0 && argc > 4){
     baudrateNo = argv[4];

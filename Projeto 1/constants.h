@@ -2,11 +2,11 @@
 #define A_SET       0x03
 #define C_SET       0x03
 #define C_DISC      0x0B
-#define BCC1 (A_SET ^ C_SET)
+#define BCC_SET (A_SET ^ C_SET)
 
 #define A_UA        0x01
 #define C_UA        0x07
-#define BCC2 (A_UA ^ C_UA)
+#define BCC_UA (A_UA ^ C_UA)
 
 #define BCC_DISC (A_SET ^ C_DISC)
 
@@ -22,3 +22,11 @@
 #define REJ1 0x01
 
 #define MAX_BUFFER_SIZE 131082
+
+#define CONTROL_BYTE_SET 0x03
+#define CONTROL_BYTE_DISC 0x0B
+#define CONTROL_BYTE_UA 0x07
+#define CONTROL_BYTE_RR0 0x05
+#define CONTROL_BYTE_RR1 0x85
+#define CONTROL_BYTE_REJ0 0x01
+#define CONTROL_BYTE_REJ1 0x81
