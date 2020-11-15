@@ -30,6 +30,6 @@ int sendFile(int fd);
 
 int writeDataToFile(unsigned char* packet);
 
-int readPacket(int fd);
+int readPacket(int fd, unsigned char* endControlPacket);
 
 int readFile(int fd);

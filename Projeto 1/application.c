@@ -72,10 +72,9 @@ void getName(char* newFileName, unsigned char* message, int size, int index){
 int readControlPacket(unsigned char* controlPacket){
     unsigned char message[1024];
     int size = llread(file_data.serialPort, controlPacket, message);
-    int index = 0, newFilesize = 0, fileSize = 0;
+    int index, newFilesize = 0, fileSize = 0;
     
-    if (message[index] == 0x02){
-        index += 7;
+    for (index = 1; index < size; index++){
         switch(message[index]){
             case 0x00:
                 index += 2;
@@ -96,13 +95,14 @@ int readControlPacket(unsigned char* controlPacket){
                 getName(newFileName, message, newFilesize, index);
 
                 file_data.fdNewFile = open("marega2", O_WRONLY | O_CREAT | O_APPEND, 0664);
+                printf("filename: %s\n", newFileName);
                 break;
             default:
                 break;
         }
     }
 
-    return size;
+    return fileSize;
 }
 
 void createPacket(unsigned char* packet, unsigned char* buffer, int size, int packetsSent){
@@ -138,7 +138,6 @@ int sendDataPacket(){
             printf("Error writing data packet to serial port!\n");
             return -1;
         }
-        printf("\n");
         packetsSent++;
     }
 
@@ -175,16 +174,34 @@ int writeDataToFile(unsigned char* packet){
     return 0;
 }
 
-int readPacket(int fd){
+int readPacket(int fd, unsigned char* endControlPacket){
+    unsigned char controlPacket[1024];
     unsigned char buffer[131082], buffer2[131082];
 
-    if(llread(fd, buffer2, buffer) > 0){
+    int size;
+    int index = 1, newFilesize = 0, fileSize = 0;
+
+    if(size = llread(fd, buffer2, buffer) > 0){
         switch(buffer[0]){
             case 0x01:
                 writeDataToFile(buffer);
                 break;
             case 0x03:
-                return 1;
+                    switch(buffer[index]){
+                        case 0x00:
+                            index += 2;
+                            fileSize += (buffer[index] << 24);
+                            index++;
+                            fileSize += (buffer[index] << 16);
+                            index++;
+                            fileSize += (buffer[index] << 8);
+                            index++;
+                            fileSize += buffer[index];
+                            return fileSize;
+                        default:
+                            break;
+                    }
+                break;
             default:
                 break;
         }
@@ -194,13 +211,19 @@ int readPacket(int fd){
 }
 
 int readFile(int fd){
-    unsigned char controlPacket[1024];
+    unsigned char startControlPacket[1024], endControlPacket[1024];
     file_data.serialPort = fd;
+    int startSize, finalSize;
 
-    readControlPacket(controlPacket);
+    startSize = readControlPacket(startControlPacket);
 
     while(1){
-        if (readPacket(fd)) break; 
+        if (finalSize = readPacket(fd, endControlPacket)) break; 
+    }
+
+    if (startSize != finalSize){
+        perror("SIZE DIFFERS\n");
+        exit(1);
     }
 
     close(file_data.fdNewFile);

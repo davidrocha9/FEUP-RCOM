@@ -186,80 +186,94 @@ int sendFrame(int fd, unsigned char* packet, int size){
 
     int totalSize = index + 4 + 1;
     write(fd, frame, totalSize);
-    printf("Size sent: %d\n", totalSize);
 
     return totalSize;  
 }
 
+void responseStateMachine(State* currentState, unsigned char byte, unsigned char* controlByte){
+    switch(*currentState){
+        case START:
+            if(byte == FLAG){    //flag
+                *currentState = FLAG_RCVD;
+            }
+            break;
+        case FLAG_RCVD:
+            if(byte == A_SET){   //acknowlegement
+                *currentState = A_RCVD;
+            }
+            else if(byte != FLAG){
+              *currentState = START;
+            }
+            break;
+        case A_RCVD:
+            if(byte == CONTROL_BYTE_SET || byte == CONTROL_BYTE_DISC || byte == CONTROL_BYTE_UA || byte == CONTROL_BYTE_RR0 || byte == CONTROL_BYTE_RR1 || byte == CONTROL_BYTE_REJ0 || byte == CONTROL_BYTE_REJ1){
+              *currentState = C_RCVD;
+              *controlByte = byte;
+            }
+            else if(byte == FLAG){
+                *currentState = FLAG_RCVD;
+            }
+            else{
+                *currentState = START;
+            }
+            break;
+        case C_RCVD:
+            if(byte == (A_SET^(*controlByte))){
+              *currentState = BCC2_RCVD;
+            }        
+            else if(byte == FLAG){
+              *currentState = FLAG_RCVD;
+            }    
+            else{
+              *currentState = START;
+            }     
+            break;
+        case BCC2_RCVD:
+            if(byte == FLAG){
+              *currentState = END;
+            }
+            else{
+              *currentState = START;
+            }
+            break;
+        case END:
+          	  break;
+        default:
+            break;
+    }
+}
+
+
 int checkSucess(int fd, unsigned char* controlByte){
     unsigned char response[256];
-    unsigned char byte;
-    memset(response, 0, strlen( (const char*) response));
-    State* state = START;
-
-    if(read(fd,response,5) < 0){
-        perror("Error reading byte");
-        return 2;
-    }
-    else{
-        if (response[0] != FLAG || response[4] != FLAG){
-            return 1;
+    memset(response, 0, strlen((const char*) response));
+	
+	unsigned char byte;
+    State state = START;
+    while(state != END && data.alarmFlag == 0){
+        if(read(fd,&byte,1) < 0){
+          perror("Error reading byte");
+			return 2;
         }
-        else if (response[1] != A_SET){
-
-            return 1;
-        }
-        else if (response[3] != (A_SET ^ response[2])){
-
-            return 1;
-        }
+        responseStateMachine(&state,byte,controlByte);
     }
 
-    if(response[2] == CONTROL_BYTE_RR0 && data.ns == 1){
-        return 0;
+	if(*controlByte == CONTROL_BYTE_RR0 && data.ns == 1){
+      return 0;
     }
-    else if(response[2] == CONTROL_BYTE_RR1 && data.ns == 0){
-        return 0;
+    else if(*controlByte == CONTROL_BYTE_RR1 && data.ns == 0){
+      return 0;
     }
-    else if(response[2] == CONTROL_BYTE_REJ0 && data.ns == 1){
-        return 1;
+    else if(*controlByte == CONTROL_BYTE_REJ0 && data.ns == 1){
+      return 1;
     }
-    else if(response[2] == CONTROL_BYTE_REJ1 && data.ns == 0){
-        return 1;
+    else if(*controlByte == CONTROL_BYTE_REJ1 && data.ns == 0){
+      return 1;
     }
     else
     {
-        return 1;
+      return 1;
     }
-    /*unsigned char response[256];
-    memset(response, 0, strlen( (const char*) response));
-    read(fd, response, 5);
-
-    if (response[0] != FLAG || response[4] != FLAG){
-        printf("FLAG error\n");
-        return 1;
-    }
-    else if (response[1] != A_SET){
-        printf("A_SET error\n");
-        return 1;
-    }
-    else if (response[3] != BCC_SET){
-        printf("BCC1 error\n");
-        return 1;
-    }
-    
-    switch(response[2]){
-        case REJ1:
-            return 1;
-        case REJ0:
-            return 1;
-        case RR0:
-            return 0;
-        case RR1:
-            return 0;
-        default:
-            return 1;
-    }*/
 
     return 1;
 }
@@ -268,26 +282,20 @@ int llwrite(int fd, unsigned char* packet, int size){
     int frameSize;
     unsigned char controlByte;
 
-    printf("Iteracao %d\n", indexIteration);
     indexIteration++;
 
     do{
-        printf("TENTATIVA NUMERO: %d\n", data.numTries);
         if (data.numTries >= 1){
             printf("Retrying...\n");
         }
         frameSize = sendFrame(fd, packet, size);
-        printf("Packet sent.\n");
         startAlarm();
 
         int val = checkSucess(fd, &controlByte);
-        if (val == 1){
+        if ((val == 1 || val == 2) && !data.alarmFlag){
             data.alarmFlag = 1;
             alarm(0);
-            data.numTries++;
-            printf("nova tentativa\n");
         }
-        else printf("sucesso\n");
     } while (data.numTries <= MAX_TRIES && data.alarmFlag);
 
     if (data.ns == 0) data.ns = 1;
@@ -363,33 +371,6 @@ int readFrame(int fd, unsigned char* packet){
     len++;
     }
 
-    /*do {
-        if (data.numTries >= 1){
-            printf("Didn't receive...\n");
-        }
-        startAlarm();
-        data.alarmFlag = 1;
-
-        if (read(fd, &byte, 1) < 0){
-            perror("Error reading byte");
-            exit(1);
-        }
-        stateMachine(&state, byte);
-        packet[len] = byte;
-        len++;
-        if (state == END){
-            break;
-        }
-    } while (data.numTries <= MAX_TRIES && data.alarmFlag);
-
-    stopAlarm();
-
-    if (data.numTries > MAX_TRIES) {
-        printf("max number of tries achieved\n");
-        return -1;
-    }
-    data.numTries = 0;*/
-
     return len;
 }
 
@@ -422,9 +403,6 @@ int destuff(unsigned char* packet, unsigned char* destuffed, int size, unsigned 
         dataPackets[x-4] = destuffed[x];
     }
 
-    printf("\n");
-
-    printf("Frame size: %d\n", i);
 
     return j;
 }
@@ -494,18 +472,14 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
         if ((size = readFrame(fd, packet)) > 0){
             destuffedlen = destuff(packet, destuffedFrame, size, dataPackets);
 
-            printf("Data size: %d\n", size);
-
             if (verifyPacket(destuffedFrame, destuffedlen, dataPackets)){
                 if (destuffedFrame[2] == C_NS0){
                     buildResponse(response, "REJ1");
                     write(fd, response, 5);
-                    printf("REJ sent: 1\n");
                 }
                 else if (destuffedFrame[2] == C_NS1){
                     buildResponse(response, "REJ0");
                     write(fd, response, 5);
-                    printf("REJ sent: 0\n");
                 }
 
                 return 0; 
@@ -514,12 +488,10 @@ int llread(int fd, unsigned char* packet, unsigned char* dataPackets){
                 if (destuffedFrame[2] == C_NS0){
                     buildResponse(response, "RR1");
                     write(fd, response, 5);
-                    printf("RR sent: 1\n");
                 }
                 else if (destuffedFrame[2] == C_NS1){
                     buildResponse(response, "RR0");
                     write(fd, response, 5);
-                    printf("RR sent: 0\n");
                 }
 
                 return destuffedlen;
@@ -552,8 +524,8 @@ int setStruct(const char* serialPort, int status, char* baudrate){
 
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME] = 0;
-    newtio.c_cc[VMIN] = 5;
+    newtio.c_cc[VTIME] = 5;
+    newtio.c_cc[VMIN] = 10;
 
     cfsetspeed(&newtio, converted);
 
@@ -616,7 +588,6 @@ int llopen(const char* serialPort, int status, char* baudrate){
             }
             data.numTries = 0;
             break;
-
 
         case RECEIVER: //1
             printf("Waiting for SET...\n");

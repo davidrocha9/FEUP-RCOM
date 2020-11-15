@@ -17,8 +17,8 @@ int main(int argc, char** argv)
   gettimeofday(&start, NULL);
 
   if ( (argc < 3) || 
-        ((strcmp("/dev/ttyS10", argv[1])!=0) && 
-        (strcmp("/dev/ttyS11", argv[1])!=0) )) {
+        ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
     printf("Usage:\tnserial SerialPort Status\n\tex: nserial /dev/ttyS0 0 \n");
     exit(1);
   }
@@ -34,6 +34,7 @@ int main(int argc, char** argv)
   if (index == 0 && argc > 4){
     baudrateNo = argv[4];
   }
+  
   if (index == 1 && argc > 3) {
     baudrateNo = argv[3];
   }
