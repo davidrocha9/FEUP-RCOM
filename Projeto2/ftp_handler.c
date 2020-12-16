@@ -1,7 +1,7 @@
 #include "ftp_handler.h"
 
 int ftp_command(FILE* fd, int sockfd, char* command) {
-    char read_buffer[2000] = "";
+    char read_buffer[BUF_SIZE] = "";
 
     printf("command: %s\n", command);
     write(sockfd, command, strlen(command));
@@ -21,7 +21,7 @@ int ftp_command_response(FILE* fd, int sockfd, char* command, char* response) {
 }
 
 int ftp_login(FILE* fd, int sockfd, url_info* url) {
-    char buffer[2000] = "";
+    char buffer[BUF_SIZE] = "";
 
     //USER
     sprintf(buffer, "USER %s\n", url->user);
@@ -35,8 +35,8 @@ int ftp_login(FILE* fd, int sockfd, url_info* url) {
 }
 
 int ftp_pasv_mode(FILE* fd, int sockfd, url_info* url) {
-    char buffer[2000] = "";
-    char read_buffer[2000] = "";
+    char buffer[BUF_SIZE] = "";
+    char read_buffer[BUF_SIZE] = "";
 
     //PASV
     sprintf(buffer, "PASV\n");
@@ -66,8 +66,7 @@ int ftp_pasv_mode(FILE* fd, int sockfd, url_info* url) {
 }
 
 int ftp_retr(FILE* fd, int sockfd, url_info* url, char* response) {
-    char buffer[2000] = "";
-    //char read_buffer[2000] = "";
+    char buffer[BUF_SIZE] = "";
     char path[2000] = "";
 
     sprintf(path, "%s%s", url->url_path, url->filename);

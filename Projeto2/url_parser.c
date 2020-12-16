@@ -25,15 +25,25 @@ int setUpStruct(url_info* url, const char* ip_str) {
         strcpy(url_path, temp_url);  // url_path = <host>/<url-path>
 
         strcpy(url->user, "anonymous");
-        strcpy(url->password, "any");
+        strcpy(url->password, "anything");
     }
-
     else {
         strcpy(url_path, url_rest + 1); // url_path = <host>/<url-path>
-        
-        strcpy(url->user, get_str_before_char(temp_url, ':'));
-        strcpy(temp_url, temp_url + strlen(url->user) + 1); // temp_url = <password>@<host>/<url-path>
-        strcpy(url->password, get_str_before_char(temp_url, '@'));
+
+        if (strchr(temp_url, ':') != NULL) {
+            strcpy(url->user, get_str_before_char(temp_url, ':'));
+            strcpy(temp_url, temp_url + strlen(url->user) + 1); // temp_url = <password>@<host>/<url-path>
+            strcpy(url->password, get_str_before_char(temp_url, '@'));
+        }
+        else {
+            strcpy(url->user, get_str_before_char(temp_url, '@'));
+
+            printf("Enter a password: \n");
+            fgets(url->password, MAX_SIZE, stdin);
+
+            char* aux = strchr(url->password, '\n');
+            *aux = '\0'; //substitute \n with \0
+        }
     }
 
     strcpy(url->host_name, get_str_before_char(url_path, '/'));

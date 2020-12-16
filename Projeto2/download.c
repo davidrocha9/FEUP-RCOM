@@ -19,28 +19,25 @@ int main(int argc, char *argv[]) {
     }
 
     url_info url;
+    int sockfd;
+    int data_socket;
 
     initialize_struct(&url);
 
-    printf("\nParsing URL...\n");
     if (setUpStruct(&url, argv[1])) {
         perror("Error with URL.\n\n");
         exit(1);
     }
-    printf("URL parsed...\n");
 
     printf("\n\nURL info:\n");
     printf_info(&url);
     printf("-------------------------------------------\n\n");
 
-    int sockfd;
     if ((sockfd = create_socket(url.ip_address, url.port)) < 0) {
         perror("create_socket()\n");
         exit(1);
     }
 
-    //INIT 
-    //char buffer[2000] = "";
     char read_buffer[BUF_SIZE] = "";
 
     FILE* fd = fdopen(sockfd, "r");
@@ -48,6 +45,10 @@ int main(int argc, char *argv[]) {
 
     fgets(read_buffer, BUF_SIZE, fd);
     printf("Response: %s\n", read_buffer);
+    int response_code;
+    sscanf(read_buffer, "%d", &response_code);
+
+    if (response_code != 220) exit(1);
 
     /*memset(read_buffer, 0, sizeof(read_buffer));
     
@@ -108,12 +109,15 @@ int main(int argc, char *argv[]) {
     fgets(read_buffer, 2000, fd);
     printf("Response: %s\n", read_buffer);*/
 
+
     //LOGIN (USER + PASSWORD)
     ftp_login(fd, sockfd, &url);
 
+
     //PASSIVE MODE (PASV + PASV RESPONSE)
-    int data_socket = ftp_pasv_mode(fd, sockfd, &url);
+    data_socket = ftp_pasv_mode(fd, sockfd, &url);
     //ftp_pasv_mode(fd, sockfd, &url, data_socket);
+
 
     //RETR
     memset(read_buffer, 0, sizeof(read_buffer));
@@ -121,7 +125,7 @@ int main(int argc, char *argv[]) {
         fclose(fd);
         close(sockfd);
         close(data_socket);
-        return 1;
+        exit(1);
     }
 
     char info[256];
@@ -130,12 +134,23 @@ int main(int argc, char *argv[]) {
     memcpy(info, &read_buffer[44], strlen(read_buffer)-44+1);
     sscanf(info, "%s (%d bytes)", path, &file_size);
 
-    int fd_file = open(url.filename, O_CREAT | O_WRONLY, 0666);
+    int fd_file;
+    if ((fd_file = open(url.filename, O_CREAT | O_WRONLY, 0666)) < 0) {
+        perror("open()\n");
+        exit(1);
+    }
 
     memset(read_buffer, 0, sizeof(read_buffer));
     int bytes;
-    while((bytes = read(data_socket, read_buffer, BUF_SIZE))) {
-        write(fd_file, read_buffer, bytes);
+    while((bytes = read(data_socket, read_buffer, sizeof(read_buffer)))) {
+        if (bytes < 0) {
+            perror("read()\n");
+            exit(1);
+        }
+        if (write(fd_file, read_buffer, bytes) < 0) {
+            perror("write()\n");
+            exit(1);
+        }
     }
 
     struct stat st;
