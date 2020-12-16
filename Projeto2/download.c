@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     FILE* fd = fdopen(sockfd, "r");
 
 
-    fgets(read_buffer, BUF_SIZE, fd);
+    if (fgets(read_buffer, BUF_SIZE, fd) == NULL);
     printf("Response: %s\n", read_buffer);
     int response_code;
     sscanf(read_buffer, "%d", &response_code);

@@ -94,7 +94,7 @@ int readControlPacket(unsigned char* controlPacket){
 
                 getName(newFileName, message, newFilesize, index);
 
-                file_data.fdNewFile = open("marega2", O_WRONLY | O_CREAT | O_APPEND, 0664);
+                file_data.fdNewFile = open(newFileName, O_WRONLY | O_CREAT | O_APPEND, 0664);
                 printf("filename: %s\n", newFileName);
                 break;
             default:

@@ -206,7 +206,7 @@ void responseStateMachine(State* currentState, unsigned char byte, unsigned char
             }
             break;
         case A_RCVD:
-            if(byte == CONTROL_BYTE_SET || byte == CONTROL_BYTE_DISC || byte == CONTROL_BYTE_UA || byte == CONTROL_BYTE_RR0 || byte == CONTROL_BYTE_RR1 || byte == CONTROL_BYTE_REJ0 || byte == CONTROL_BYTE_REJ1){
+            if(byte == CONTROL_BYTE_SET || byte == CONTROL_BYTE_DISC || byte == CONTROL_BYTE_UA || byte == RR0 || byte == RR1 || byte == REJ0 || byte == REJ1){
               *currentState = C_RCVD;
               *controlByte = byte;
             }
@@ -258,16 +258,16 @@ int checkSucess(int fd, unsigned char* controlByte){
         responseStateMachine(&state,byte,controlByte);
     }
 
-	if(*controlByte == CONTROL_BYTE_RR0 && data.ns == 1){
+	if(*controlByte == RR0 && data.ns == 1){
       return 0;
     }
-    else if(*controlByte == CONTROL_BYTE_RR1 && data.ns == 0){
+    else if(*controlByte == RR1 && data.ns == 0){
       return 0;
     }
-    else if(*controlByte == CONTROL_BYTE_REJ0 && data.ns == 1){
+    else if(*controlByte == REJ0 && data.ns == 1){
       return 1;
     }
-    else if(*controlByte == CONTROL_BYTE_REJ1 && data.ns == 0){
+    else if(*controlByte == REJ1 && data.ns == 0){
       return 1;
     }
     else
