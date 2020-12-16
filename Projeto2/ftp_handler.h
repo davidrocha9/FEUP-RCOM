@@ -12,9 +12,14 @@
 #include "url_parser.h"
 #include "socket_handler.h"
 
+typedef struct ftp_t {
+    int control_socket_fd;
+    int data_socket_fd;
+} ftp_t;
+
 int ftp_command(FILE* fd, int sockfd, char* command);
 
-int ftp_command_response(FILE* fd, int sockfd, char* command, char* response);
+int ftp_command_response(FILE* fd, const int socket_fd, const char* command, char* response);
 
 int ftp_login(FILE* fd, int sockfd, url_info* url);
 

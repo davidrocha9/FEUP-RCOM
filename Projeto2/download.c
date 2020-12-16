@@ -38,81 +38,20 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    char read_buffer[BUF_SIZE] = "";
-
+    char read_buffer[1024];
     FILE* fd = fdopen(sockfd, "r");
-
-
-    if (fgets(read_buffer, BUF_SIZE, fd) == NULL);
-    printf("Response: %s\n", read_buffer);
-    int response_code;
-    sscanf(read_buffer, "%d", &response_code);
-
-    if (response_code != 220) exit(1);
-
-    /*memset(read_buffer, 0, sizeof(read_buffer));
     
-    //USER
-    sprintf(buffer, "USER %s\n", url.user);
-    printf("buf: %s\n", buffer);
-    write(sockfd, buffer, strlen(buffer));
-    fgets(read_buffer, BUF_SIZE, fd);
-    printf("Response: %s\n", read_buffer);
+    if (readSocket(fd, sockfd, read_buffer, sizeof(read_buffer))) {
+		perror("ftp_read()");
+		return 1;
+	}
 
-    memset(read_buffer, 0, sizeof(read_buffer));
-
-    //PASSWORD
-    sprintf(buffer, "PASS %s\n", url.password);
-    printf("buf: %s\n", buffer);
-    write(sockfd, buffer, strlen(buffer));
-    fgets(read_buffer, BUF_SIZE, fd);
-    printf("Response: %s\n", read_buffer);
-
-    memset(read_buffer, 0, sizeof(read_buffer));
-
-    //PASSIVE MODE (PASV)
-    int data_socket;
-    ftp_pasv_mode(fd, sockfd, url, data_socket);
-    sprintf(buffer, "PASV\n");
-    printf("buf: %s\n", buffer);
-    write(sockfd, buffer, strlen(buffer));
-    fgets(read_buffer, BUF_SIZE, fd);
-    printf("Response: %s\n", read_buffer);
-
-
-    //PASV Response
-    int ip1, ip2, ip3, ip4, port1, port2;
-    
-    if (sscanf(read_buffer, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2) < 0) {
-        perror("sscanf()\n");
-        return 1;
-    }
-
-    char ip_address[BUF_SIZE] = "";
-    sprintf(ip_address, "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
-    int port_num = port1*256 + port2;
-    printf("IP Address: %s, Port: %d\n", ip_address, port_num);
-
-    //Creating data socket
-    int data_socket;
-    if ((data_socket = create_socket(ip_address, port_num)) < 0) {
-        perror("create_socket()\n");
-        exit(1);
-    }
-
-    memset(read_buffer, 0, sizeof(read_buffer));
-
-    //RETR
-    sprintf(buffer, "RETR %s\n", url.url_path);
-    printf("buf: %s\n", buffer);
-    write(sockfd, buffer, strlen(buffer));
-    fgets(read_buffer, 2000, fd);
-    printf("Response: %s\n", read_buffer);*/
+    printf("Started ftp connection successfully\n");
 
 
     //LOGIN (USER + PASSWORD)
     ftp_login(fd, sockfd, &url);
-
+    printf("Logged in successfully\n");
 
     //PASSIVE MODE (PASV + PASV RESPONSE)
     data_socket = ftp_pasv_mode(fd, sockfd, &url);
@@ -142,7 +81,9 @@ int main(int argc, char *argv[]) {
 
     memset(read_buffer, 0, sizeof(read_buffer));
     int bytes;
+    unsigned int totalbytes = 0;
     while((bytes = read(data_socket, read_buffer, sizeof(read_buffer)))) {
+        totalbytes += bytes;
         if (bytes < 0) {
             perror("read()\n");
             exit(1);
@@ -154,7 +95,7 @@ int main(int argc, char *argv[]) {
     }
 
     struct stat st;
-    stat(path, &st);
+    stat(url.filename, &st);
     int fsize = st.st_size;
     if (fsize != file_size) {
         printf("File size incorrect. Possible data loss...\n");
@@ -162,7 +103,7 @@ int main(int argc, char *argv[]) {
     else printf("File size correct...\n");
 
     memset(read_buffer, 0, sizeof(read_buffer));
-    fgets(read_buffer, BUF_SIZE, fd);
+    readSocket(fd, sockfd, read_buffer, sizeof(read_buffer));
     printf("Response: %s\n", read_buffer);
 
     fclose(fd);

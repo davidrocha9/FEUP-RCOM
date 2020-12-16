@@ -24,3 +24,56 @@ int create_socket(const char* ip_address, int port) {
 
     return sockfd;
 }
+
+/*int writeSocket(int socket_fd, char* str, size_t str_size) {
+    int bytes;
+
+    // Write a string to the server
+	if ((bytes = write(socket_fd, str, str_size)) <= 0) {
+		perror("Write to socket\n");
+		return 1;
+	}
+
+	printf("Bytes written to server: %d\nInfo: %s\n", bytes, str);
+
+	return 0;
+}
+
+int readSocket(int socket_fd, char* str, size_t str_size) {
+    FILE* fp = fdopen(socket_fd, "r");
+
+	do {
+		memset(str, 0, str_size);
+		str = fgets(str, str_size, fp);
+		printf("%s", str);
+
+	} while (!('1' <= str[0] && str[0] <= '5') || str[3] != ' ');
+
+	return 0;
+}*/
+
+int writeSocket(FILE* fd, const int socket_fd, const char* str, const size_t str_size) {
+    int bytes;
+
+	printf("%d\n", socket_fd);
+    // Write a string to the server
+	if ((bytes = write(socket_fd, str, str_size)) <= 0) {
+		perror("Write to socket\n");
+		return 1;
+	}
+
+	printf("Bytes written to server: %d\nInfo: %s\n", bytes, str);
+
+	return 0;
+}
+
+int readSocket(FILE* fd, const int socket_fd, char* str, size_t str_size) {
+	do {
+		memset(str, 0, str_size);
+		str = fgets(str, str_size, fd);
+		printf("%s", str);
+
+	} while (!('1' <= str[0] && str[0] <= '5') || str[3] != ' ');
+
+	return 0;
+}

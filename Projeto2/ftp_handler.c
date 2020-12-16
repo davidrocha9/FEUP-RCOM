@@ -1,31 +1,39 @@
 #include "ftp_handler.h"
+#include "socket_handler.h"
 
-int ftp_command(FILE* fd, int sockfd, char* command) {
-    char read_buffer[BUF_SIZE] = "";
+int ftp_command_response(FILE* fd, const int socket_fd, const char* command, char* response) {
+	char buffer[1024]; 
+	
+	sprintf(buffer, "%s\r\n", command);
+	writeSocket(fd, socket_fd, buffer, strlen(buffer));
+    readSocket(fd, socket_fd, buffer, sizeof(buffer));
 
-    printf("command: %s\n", command);
-    write(sockfd, command, strlen(command));
-    fgets(read_buffer, 1024, fd);
-    printf("Response: %s\n", read_buffer);
+	memcpy(response, buffer, sizeof(buffer));
 
-    return 0;
+	return 0;
 }
 
-int ftp_command_response(FILE* fd, int sockfd, char* command, char* response) {
-    printf("command: %s\n", command);
-    write(sockfd, command, strlen(command));
-    fgets(response, 1024, fd);
-    printf("Response: %s\n", response);
+int ftp_command(FILE* fd, int sockfd, char* command) {
+    char read_buffer[1024];
+    char buffer[1024]; 
+	
+	sprintf(buffer, "%s\r\n", command);
+	writeSocket(fd, sockfd, buffer, strlen(buffer));
+    readSocket(fd, sockfd, buffer, sizeof(buffer));
 
-    return 0;
+	memcpy(read_buffer, buffer, sizeof(buffer));
+
+	return 0;
 }
 
 int ftp_login(FILE* fd, int sockfd, url_info* url) {
-    char buffer[BUF_SIZE] = "";
+    char buffer[1024];
 
     //USER
     sprintf(buffer, "USER %s\n", url->user);
     ftp_command(fd, sockfd, buffer);
+
+    memset(buffer, 0, sizeof(buffer));
 
     //PASSWORD
     sprintf(buffer, "PASS %s\n", url->password);
