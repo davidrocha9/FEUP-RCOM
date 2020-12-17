@@ -9,7 +9,6 @@
 #include <netinet/in.h>
 
 #define MAX_SIZE 256
-#define URL_SIZE 1024
 #define BUF_SIZE 1024
 
 typedef struct url_info {
@@ -17,7 +16,7 @@ typedef struct url_info {
 	char password[MAX_SIZE]; 
 	char host_name[MAX_SIZE]; 
 	char ip_address[MAX_SIZE]; 
-	char url_path[URL_SIZE]; 
+	char url_path[BUF_SIZE]; 
 	char filename[MAX_SIZE]; 
 	int port; 
 } url_info;
