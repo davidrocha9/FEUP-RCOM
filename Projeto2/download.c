@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
     memset(read_buffer, 0, sizeof(read_buffer));
     int bytes;
-    unsigned int totalbytes = 0;
+    double totalbytes = 0.0;
     while((bytes = read(data_socket, read_buffer, sizeof(read_buffer)))) {
         if (bytes < 0) {
             perror("read()\n");
@@ -97,7 +97,13 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
         totalbytes += bytes;
+
+        double percentage = totalbytes/file_size;
+        int val = (int) (percentage * 100);
+        printf("\rPercentage downloaded: [%3d%%]", val);
+        fflush(stdout);
     }
+    printf("\n");
 
     struct stat st;
     stat(url.filename, &st);
