@@ -21,3 +21,5 @@ int ftp_login(FILE* fd, int sockfd, url_info* url);
 int ftp_pasv_mode(FILE* fd, int sockfd, url_info* url, int* data_socket);
 
 int ftp_retr(FILE* fd, int sockfd, url_info* url, char* response);
+
+int ftp_quit(FILE* fd, int sockfd, url_info* url);

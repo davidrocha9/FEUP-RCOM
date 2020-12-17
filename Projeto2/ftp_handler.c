@@ -137,3 +137,23 @@ int ftp_retr(FILE* fd, int sockfd, url_info* url, char* response) {
 
     return 0;
 }
+
+int ftp_quit(FILE* fd, int sockfd, url_info* url) {
+    char buffer[BUF_SIZE] = "";
+    char read_buffer[BUF_SIZE] = "";
+
+    sprintf(buffer, "QUIT\n");
+    if (ftp_command_response(fd, sockfd, buffer, read_buffer)) {
+        perror("quit()\n");
+        return 1;
+    }
+
+    int response_code;
+    sscanf(read_buffer, "%d", &response_code);
+    if (response_code == 221) {
+        printf("Error pass()\n");
+        return 1;
+    }
+    
+    return 0;
+}

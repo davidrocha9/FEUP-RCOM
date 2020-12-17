@@ -113,6 +113,11 @@ int main(int argc, char *argv[]) {
     }
     else printf("File size correct...\n");
 
+    if (ftp_quit(fd, sockfd, &url)) {
+        perror("ftp_quit()\n");
+        exit(1);
+    }
+
     memset(read_buffer, 0, sizeof(read_buffer));
     readSocket(fd, sockfd, read_buffer, sizeof(read_buffer));
 
